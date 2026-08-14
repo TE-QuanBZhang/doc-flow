@@ -27,6 +27,7 @@ class Document(Base):
     status = Column(Enum(DocumentStatus), default=DocumentStatus.DRAFT, nullable=False)
     variable_values = Column(JSON, default=dict)
     file_path = Column(String(500))
+    quality_report = Column(JSON, nullable=True)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     batch_task_id = Column(UUID(as_uuid=True), ForeignKey("batch_tasks.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

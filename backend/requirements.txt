@@ -15,3 +15,27 @@ openpyxl==3.1.5
 pandas==2.2.2
 aiofiles==24.1.0
 python-dotenv==1.0.1
+mammoth>=1.12.0
+# sirchmunk vendor (knowledge/chat/search)
+loguru>=0.7.0
+openai>=1.0.0
+genson>=1.2.0
+pillow>=10.0.0
+pypdf>=4.0.0
+pdfminer.six>=20231228
+parquet>=1.3.0
+msgpack>=1.0.0
+sentencepiece>=0.1.99
+tqdm>=4.66.0
+rapidfuzz>=3.0.0
+duckdb>=1.0.0
+python-docx>=1.1.0
+python-pptx>=0.6.23
+charset-normalizer>=3.3.0
+igraph>=0.11.0
+leidenalg>=0.9.0
+sentence-transformers>=2.2.0
+modelscope>=1.9.0
+
+# Document-to-Markdown conversion for knowledge base ingestion
+firecrawl-anydoc>=0.1.0

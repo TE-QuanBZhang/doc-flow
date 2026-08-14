@@ -51,6 +51,7 @@ export const api = {
   // Templates
   getTemplates: (params?: Record<string, any>): ApiResponse<any> => http.get('/templates', { params }),
   getTemplate: (id: string): ApiResponse<any> => http.get(`/templates/${id}`),
+  previewTemplate: (id: string): ApiResponse<any> => http.get(`/templates/${id}/preview`),
   uploadTemplate: (formData: FormData): ApiResponse<any> => http.post('/templates', formData),
   updateTemplate: (id: string, data: any): ApiResponse<any> => http.put(`/templates/${id}`, data),
   deleteTemplate: (id: string): ApiResponse<any> => http.delete(`/templates/${id}`),
@@ -65,6 +66,7 @@ export const api = {
 
   // Documents
   generateDocument: (data: any): ApiResponse<any> => http.post('/documents/generate', data),
+  generateDocumentPreserving: (data: any): ApiResponse<any> => http.post('/documents/generate-preserving', data),
   saveDraft: (data: any): ApiResponse<any> => http.post('/documents/drafts', data),
   getDocument: (id: string): ApiResponse<any> => http.get(`/documents/${id}`),
   previewDocument: (id: string): ApiResponse<any> => http.get(`/documents/${id}/preview`),

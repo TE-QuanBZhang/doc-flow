@@ -1,4 +1,8 @@
-## ADDED Requirements
+## Purpose
+
+Define conditional blocks and loop blocks supported inside Word templates.
+
+## Requirements
 
 ### Requirement: System supports conditional blocks
 The system SHALL support `{{#if:variable}}...{{/if}}` syntax to conditionally include or exclude content sections based on variable values.

@@ -9,6 +9,7 @@ interface UploadResult {
   name: string
   status: string
   variables_count?: number
+  format_fingerprint?: string | null
 }
 
 export default function UploadTemplateModal({ onClose }: { onClose: () => void }) {
@@ -118,6 +119,8 @@ export default function UploadTemplateModal({ onClose }: { onClose: () => void }
     setUploading(true)
     setUploadProgress(0)
 
+    console.log('[UPLOAD] Step 1: Submit triggered', { name, category, description, tags, fileName: file?.name })
+
     try {
       const formData = new FormData()
       if (file) formData.append('file', file)
@@ -126,21 +129,32 @@ export default function UploadTemplateModal({ onClose }: { onClose: () => void }
       formData.append('description', description)
       formData.append('tags', JSON.stringify(tags))
 
+      console.log('[UPLOAD] Step 2: FormData prepared, sending request...')
+
       // Upload with progress tracking using shared http instance
       const { http } = await import('../services/api')
+      console.log('[UPLOAD] Request URL:', http.defaults.baseURL + '/templates')
       const res = await http.post('/templates', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (progressEvent) => {
           const percent = progressEvent.total
             ? Math.round((progressEvent.loaded * 100) / progressEvent.total)
             : 0
+          console.log('[UPLOAD] Progress:', percent, '%')
           setUploadProgress(percent)
         },
       })
 
-      setResult(res.data)
+      console.log('[UPLOAD] Step 3: Response data:', res)
+
+      setResult(res as unknown as UploadResult)
       setStep('result')
     } catch (err: any) {
+      console.error('[UPLOAD] Step 4: Upload failed')
+      console.error('[UPLOAD] Error:', err)
+      console.error('[UPLOAD] Error response:', err?.response)
+      console.error('[UPLOAD] Error status:', err?.response?.status)
+      console.error('[UPLOAD] Error data:', err?.response?.data)
       const detail = err?.response?.data?.detail || err?.message || '上传失败，请重试'
       setErrorMsg(detail)
       setStep('error')
@@ -318,6 +332,11 @@ export default function UploadTemplateModal({ onClose }: { onClose: () => void }
                   <span>状态：{result.status === 'draft' ? '草稿' : result.status}</span>
                   {result.variables_count !== undefined && (
                     <span>检测到变量：{result.variables_count} 个</span>
+                  )}
+                  {result.format_fingerprint && (
+                    <span style={{ fontSize: 11, fontFamily: 'monospace' }}>
+                      样式指纹：{result.format_fingerprint}
+                    </span>
                   )}
                 </div>
               </div>

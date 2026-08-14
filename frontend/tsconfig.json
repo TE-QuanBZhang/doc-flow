@@ -15,7 +15,14 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/chat/*"],
+      "next/link": ["src/chat/lib/next-shim/link.tsx"],
+      "next/image": ["src/chat/lib/next-shim/image.tsx"],
+      "next/navigation": ["src/chat/lib/next-shim/navigation.ts"]
+    }
   },
   "include": ["src"]
 }

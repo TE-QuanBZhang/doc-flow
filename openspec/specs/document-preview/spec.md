@@ -1,4 +1,8 @@
-## ADDED Requirements
+## Purpose
+
+Define requirements for previewing generated documents before final export.
+
+## Requirements
 
 ### Requirement: System provides paginated document preview
 The system SHALL display generated documents as paginated preview with headers, footers, and page numbers rendered.

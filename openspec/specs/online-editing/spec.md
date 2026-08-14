@@ -1,4 +1,8 @@
-## ADDED Requirements
+## Purpose
+
+Define requirements for online editing of template documents.
+
+## Requirements
 
 ### Requirement: System provides variable editing panel
 The system SHALL display a variable editing panel alongside the document preview, allowing users to modify field values with real-time preview updates.

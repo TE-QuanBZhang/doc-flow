@@ -1,7 +1,8 @@
 """Template and template version schemas."""
 
+import uuid
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Any
 
 
@@ -28,12 +29,31 @@ class TemplateResponse(BaseModel):
     tags: list[Any]
     status: str
     current_version: int
+    format_fingerprint: str | None = None
+    style_spec: dict | None = None
     created_by: str
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
+
+    @field_validator('id', 'created_by', mode='before')
+    @classmethod
+    def coerce_uuid(cls, v):
+        if isinstance(v, uuid.UUID):
+            return str(v)
+        return v
+
+    @field_validator('style_spec', mode='before')
+    @classmethod
+    def parse_style_spec(cls, v):
+        """Handle both dict (new format) and string (old format) style_spec."""
+        if isinstance(v, dict):
+            return v
+        if isinstance(v, str):
+            # Old format: stored as str(spec) - not parseable JSON, skip
+            return None
+        return v
 
 
 class TemplateVersionResponse(BaseModel):
@@ -44,5 +64,11 @@ class TemplateVersionResponse(BaseModel):
     created_by: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
+
+    @field_validator('id', 'template_id', 'created_by', mode='before')
+    @classmethod
+    def coerce_uuid(cls, v):
+        if isinstance(v, uuid.UUID):
+            return str(v)
+        return v

@@ -1,6 +1,7 @@
 """Authentication schemas."""
 
-from pydantic import BaseModel, EmailStr
+import uuid
+from pydantic import BaseModel, EmailStr, field_validator
 
 
 class LoginRequest(BaseModel):
@@ -28,5 +29,11 @@ class UserResponse(BaseModel):
     role: str
     is_active: bool
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
+
+    @field_validator('id', mode='before')
+    @classmethod
+    def coerce_uuid(cls, v):
+        if isinstance(v, uuid.UUID):
+            return str(v)
+        return v

@@ -27,6 +27,25 @@ class GenerateRequest(BaseModel):
     variables: dict
 
 
+class GeneratePreservingRequest(BaseModel):
+    """Generate document via in-place replacement, preserving all formatting."""
+    template_id: str
+    title: str | None = None
+    variables: dict = {}
+    table_data: dict[str, list[list]] | None = None
+    image_map: dict[str, str] | None = None  # placeholder -> base64 data URI or file path
+    object_map: dict[str, str] | None = None
+
+
+class GenerateWithLLMRequest(BaseModel):
+    template_id: str
+    title: str | None = None
+    business_input: str
+    tone: str = "formal"
+    max_length: int = 500
+    banned_terms: list[str] | None = None
+
+
 class SaveDraftRequest(BaseModel):
     template_id: str
     title: str | None = None
@@ -91,6 +110,14 @@ def generate_single_document(
     # Check for unresolved placeholders
     unresolved = detect_unresolved_placeholders(output_full_path)
 
+    # Run quality check
+    quality = None
+    try:
+        from engine.app.core.quality_checker import run_quality_check
+        quality = run_quality_check(template_full_path, output_full_path)
+    except Exception:
+        pass
+
     # Create document record
     doc = Document(
         title=req.title or f"文档_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}",
@@ -99,6 +126,7 @@ def generate_single_document(
         status=DocumentStatus.DRAFT,
         variable_values=req.variables,
         file_path=output_rel_path,
+        quality_report=quality.to_dict() if quality else None,
         created_by=current_user.id,
     )
     db.add(doc)
@@ -110,6 +138,188 @@ def generate_single_document(
         "title": doc.title,
         "status": doc.status.value,
         "unresolved_placeholders": unresolved,
+        "quality": quality.to_dict() if quality else None,
+    }
+
+
+@router.post("/generate-preserving")
+def generate_preserving_format(
+    req: GeneratePreservingRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Generate a document via in-place replacement, preserving all formatting.
+
+    Text/tables/images/OLE objects are replaced in-place without rebuilding the
+    document, so all formatting (fonts, image geometry, table style) is preserved.
+    """
+    template = db.query(Template).filter(Template.id == req.template_id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="模板不存在")
+    if template.status != TemplateStatus.PUBLISHED:
+        raise HTTPException(status_code=400, detail="模板未发布")
+
+    from engine.app.core.renderer import generate_document_preserving_format
+
+    template_full_path = template_storage.get_full_path(template.file_path)
+    output_filename = f"{uuid.uuid4().hex}.docx"
+    output_rel_path = document_storage.save("", output_filename, b"")
+    output_full_path = document_storage.get_full_path(output_rel_path)
+
+    # Decode base64 image data URIs into bytes
+    image_map = None
+    if req.image_map:
+        image_map = {}
+        for key, value in req.image_map.items():
+            image_map[key] = _decode_image_value(value)
+
+    try:
+        generate_document_preserving_format(
+            template_path=template_full_path,
+            output_path=output_full_path,
+            variables=req.variables or {},
+            table_data=req.table_data,
+            image_map=image_map,
+            object_map=req.object_map,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"保格式生成失败: {str(e)}")
+
+    # Check for unresolved placeholders
+    unresolved = detect_unresolved_placeholders(output_full_path)
+
+    doc = Document(
+        title=req.title or f"文档_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}",
+        template_id=template.id,
+        template_version=template.current_version,
+        status=DocumentStatus.DRAFT,
+        variable_values=req.variables or {},
+        file_path=output_rel_path,
+        created_by=current_user.id,
+    )
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+
+    return {
+        "id": str(doc.id),
+        "title": doc.title,
+        "status": doc.status.value,
+        "mode": "preserving",
+        "unresolved_placeholders": unresolved,
+    }
+
+
+def _decode_image_value(value: str) -> bytes:
+    """Decode a base64 data URI into bytes, or return the value as a file path."""
+    import base64
+    if value.startswith('data:'):
+        try:
+            b64_data = value.split(',', 1)[1]
+            return base64.b64decode(b64_data)
+        except Exception:
+            pass
+    # Assume file path
+    return value
+
+
+@router.post("/generate-with-llm")
+def generate_with_llm(
+    req: GenerateWithLLMRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Generate a document with LLM-assisted field content."""
+    template = db.query(Template).filter(Template.id == req.template_id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="模板不存在")
+    if template.status != TemplateStatus.PUBLISHED:
+        raise HTTPException(status_code=400, detail="模板未发布")
+
+    try:
+        from engine.app.core.llm_generator import generate_field_values, is_llm_configured
+        from engine.app.core.models import FieldSchemaSet, FieldSchema, FieldType
+        from engine.app.core.prompt_builder import PromptVersion
+        from engine.app.core.renderer import generate_document, detect_unresolved_placeholders
+        from engine.app.core.quality_checker import run_quality_check
+    except ImportError as e:
+        raise HTTPException(status_code=500, detail=f"引擎模块加载失败: {e}")
+
+    if not is_llm_configured():
+        raise HTTPException(status_code=400, detail="LLM 未配置: 请设置 DEEPSEEK_API_KEY 环境变量")
+
+    # Build schema from template variables
+    from app.models.variable import TemplateVariable
+    variables_db = db.query(TemplateVariable).filter(
+        TemplateVariable.template_id == template.id
+    ).all()
+
+    schema_set = FieldSchemaSet(template_id=str(template.id))
+    for v in variables_db:
+        schema_set.fields.append(
+            FieldSchema(
+                name=v.name,
+                field_type=FieldType.STRING,
+                required=True,
+                description=v.description or f"模板变量: {v.name}",
+            )
+        )
+
+    if not schema_set.fields:
+        raise HTTPException(status_code=400, detail="模板没有定义的变量，无需 LLM 生成")
+
+    # Call LLM
+    result = generate_field_values(
+        schema_set=schema_set,
+        business_input=req.business_input,
+        tone=req.tone,
+        max_length=req.max_length,
+        banned_terms=req.banned_terms,
+    )
+
+    if not result.success:
+        raise HTTPException(status_code=500, detail=f"LLM 生成失败: {result.error}")
+
+    # Generate document with LLM-produced values
+    template_full_path = template_storage.get_full_path(template.file_path)
+    output_filename = f"{uuid.uuid4().hex}.docx"
+    output_rel_path = document_storage.save("", output_filename, b"")
+    output_full_path = document_storage.get_full_path(output_rel_path)
+
+    generate_document(template_full_path, result.data, output_full_path)
+    unresolved = detect_unresolved_placeholders(output_full_path)
+
+    # Quality check
+    quality = None
+    try:
+        quality = run_quality_check(template_full_path, output_full_path)
+    except Exception:
+        pass
+
+    # Create document record
+    doc = Document(
+        title=req.title or f"文档_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}",
+        template_id=template.id,
+        template_version=template.current_version,
+        status=DocumentStatus.DRAFT,
+        variable_values=result.data,
+        file_path=output_rel_path,
+        quality_report=quality.to_dict() if quality else None,
+        created_by=current_user.id,
+    )
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+
+    return {
+        "id": str(doc.id),
+        "title": doc.title,
+        "status": doc.status.value,
+        "llm_generated_fields": result.data,
+        "prompt_version": result.prompt_version,
+        "llm_model": result.model,
+        "unresolved_placeholders": unresolved,
+        "quality": quality.to_dict() if quality else None,
     }
 
 
@@ -123,7 +333,19 @@ def get_document(
     doc = db.query(Document).filter(Document.id == document_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="文档不存在")
-    return doc
+    return {
+        "id": str(doc.id),
+        "title": doc.title,
+        "template_id": str(doc.template_id),
+        "template_version": doc.template_version,
+        "status": doc.status.value,
+        "variable_values": doc.variable_values,
+        "file_path": doc.file_path,
+        "quality_report": doc.quality_report,
+        "created_by": str(doc.created_by),
+        "created_at": doc.created_at.isoformat() if doc.created_at else None,
+        "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,
+    }
 
 
 @router.get("/{document_id}/preview")
