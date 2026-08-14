@@ -185,6 +185,55 @@ def generate_document_with_schema(
     return generate_document(template_path, variables, output_path)
 
 
+def generate_document_preserving_format(
+    template_path: str,
+    output_path: str,
+    variables: dict[str, Any],
+    table_data: dict[str, list[list[Any]]] | None = None,
+    image_map: dict[str, Any] | None = None,
+    object_map: dict[str, Any] | None = None,
+) -> str:
+    """Generate a document by in-place content replacement, preserving all formatting.
+    
+    This mode does NOT rebuild the document. It modifies OOXML nodes in place:
+    - Text placeholders: only <w:t> content changed, <w:rPr>/<w:pPr> preserved
+    - Tables: cell text replaced, <w:tblPr>/<w:tblGrid> preserved
+    - Images: binary replaced, <wp:extent>/<wp:anchor> geometry preserved
+    - Embedded objects: data file replaced, OLE container preserved
+
+    Args:
+        template_path: Source .docx template.
+        output_path: Where to save the result.
+        variables: Text placeholder -> value mapping.
+        table_data: Table placeholder -> rows mapping (each row = list of cell values).
+        image_map: Image placeholder -> bytes/path mapping.
+        object_map: OLE object placeholder -> bytes/path mapping.
+
+    Returns:
+        Output path.
+    """
+    from .preserve_replace import replace_preserving_format
+    from .preserve_replace_images import (
+        replace_images_preserving_geometry,
+        replace_embedded_objects,
+    )
+
+    # 1. Text + table replacement
+    replace_preserving_format(
+        template_path, output_path, variables, table_data=table_data
+    )
+
+    # 2. Image replacement (preserve geometry)
+    if image_map:
+        replace_images_preserving_geometry(output_path, output_path, image_map)
+
+    # 3. Embedded object replacement (preserve container)
+    if object_map:
+        replace_embedded_objects(output_path, output_path, object_map)
+
+    return output_path
+
+
 # ─── 5.5 Placeholder Detection ───────────────────────────────
 
 def detect_unresolved_placeholders(output_path: str) -> list[str]:

@@ -1,0 +1,191 @@
+{
+  "version": 1,
+  "skills": {
+    "android-anr-investigator": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "ai-coding/skills/android-anr-investigator/SKILL.md",
+      "computedHash": "af8589e159ab34c79e1b1c64a3df058b9c55782c0e6c1c4db046f9b9fb588b66"
+    },
+    "android-camera-bugfix-skill": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "ai-coding/skills/android-camera-bugfix-skill/SKILL.md",
+      "computedHash": "2adc9be4c4268b5d74b77c1caf266a7206eb098b86a2990623c4989caedf733d"
+    },
+    "android-crash-analyzer": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "ai-coding/skills/android-crash-analyzer/SKILL.md",
+      "computedHash": "6f224124706496a29c16352c8596972fd2346e8cb7e1a22cd218b8fc5c76e3f4"
+    },
+    "android-gallery-bugfix-skill": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "ai-coding/skills/android-gallery-bugfix-skill/SKILL.md",
+      "computedHash": "65d927cf385e4a9b5b5d131b84a8f699c2f291be8e4557edf90cbfe51dab5908"
+    },
+    "android-lifecycle-debugger": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "ai-coding/skills/android-lifecycle-debugger/SKILL.md",
+      "computedHash": "c119df8e0663c6b238db94051d8f14c91aad9fb2a4f395e5db83c927e76cd47e"
+    },
+    "android-memory-leak-fixer": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "ai-coding/skills/android-memory-leak-fixer/SKILL.md",
+      "computedHash": "12d11f96f8b616634bfd801ef63a32bcfae0f8600ff1f7f5366ea18da44ae1ab"
+    },
+    "android-network-bug-debugger": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "ai-coding/skills/android-network-bug-debugger/SKILL.md",
+      "computedHash": "246b5cb933ee945ad6beba1ffd559d7382611a6c4be49b9c9e8a4124d4c90355"
+    },
+    "android-ui-regression-checker": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "ai-coding/skills/android-ui-regression-checker/SKILL.md",
+      "computedHash": "83f4e66df99917434c39bd52c7d9ba7e111ae7cb810d5ad28a111e3fe1ece8c9"
+    },
+    "codekb-ask": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "codekb/skills/codekb-ask/SKILL.md",
+      "computedHash": "e7c3d2cea6882ed98fa26fdfaddf7ce04a50aaa4a127d5eab6b213cc01ca2f8b"
+    },
+    "codekb-explain": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "codekb/skills/codekb-explain/SKILL.md",
+      "computedHash": "40ea9fcc115e072f58615c7d1fba288395bdbb5106eb35e36ed62d45a1b4250c"
+    },
+    "codekb-extract": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "codekb/skills/codekb-extract/SKILL.md",
+      "computedHash": "128c9c93774070c7f8a21ba87ebe65fb815b6c172184b7bc83ba114d27a7262c"
+    },
+    "codekb-init": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "codekb/skills/codekb-init/SKILL.md",
+      "computedHash": "41f87212d63d8ec7b2ce59752dbdb7c127351f18a7d4e7d94136f17309d92834"
+    },
+    "codekb-review": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "codekb/skills/codekb-review/SKILL.md",
+      "computedHash": "6b50070ff0f3fc60ca3aba294e5774124cac8427ed5184a52173fb2eef1c732d"
+    },
+    "codekb-search": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "codekb/skills/codekb-search/SKILL.md",
+      "computedHash": "4c6f5f636a12d96f1af84a09f6467f601954d081ccc3d2fef1f39e5acf75e7af"
+    },
+    "openspec-android-bug": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "ai-coding/skills/openspec-android-bug/SKILL.md",
+      "computedHash": "5acdd50cd64344d8758f50d1b35bd3182ea0bb14e33306de583c00e9740b4053"
+    },
+    "openspec-apply": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "ai-coding/skills/openspec-apply/SKILL.md",
+      "computedHash": "b674137f6b0da52b1af0b46db905919b05f0e0834d4c2f9d9b86dc7828e3aa2a"
+    },
+    "openspec-archive": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "ai-coding/skills/openspec-archive/SKILL.md",
+      "computedHash": "39069c3a860ca8734fc596d881855c87ed272bc1723b9989d4f78ceb47f24490"
+    },
+    "openspec-codekb-integration": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "codekb/skills/openspec-codekb-integration/SKILL.md",
+      "computedHash": "f9ef7e05336e303ab4c8322229fad640b5aa2d76900191b2116292757710cce7"
+    },
+    "openspec-explore": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "ai-coding/skills/openspec-explore/SKILL.md",
+      "computedHash": "9aff2fade722b6cbac7b0fe970cd1dbce23c009d2d5d19203125c22d6291d9c6"
+    },
+    "openspec-propose": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "ai-coding/skills/openspec-propose/SKILL.md",
+      "computedHash": "f9a39a4bc603f17f49beb4a8b51d381770020c2819cad940b912422960aff666"
+    },
+    "openspec-sync-specs": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "ai-coding/skills/openspec-sync-specs/SKILL.md",
+      "computedHash": "bf56bf1ae6920540c5d6552da93b9a77c27857e06ddce4024ff812efe044bdde"
+    },
+    "openspec-trace-logger": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "ai-coding/skills/openspec-trace-logger/SKILL.md",
+      "computedHash": "6032bf7b0075ed265da5a531b9a4e261bba19a96df28bd7da5368230b312b548"
+    },
+    "openspec-verify": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "ai-coding/skills/openspec-verify/SKILL.md",
+      "computedHash": "ac7df3e708c964a5ae010508073ebba13dc7016b0cdf5220ccf32e5541551eab"
+    },
+    "opsx-android-bug": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "ai-coding/skills/opsx-android-bug/SKILL.md",
+      "computedHash": "3280524dda836c966b8d7351165e0a950de4dca8688f0e80857826fdef7a2faa"
+    },
+    "opsx-apply": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "ai-coding/skills/opsx-apply/SKILL.md",
+      "computedHash": "f3de9017dfdacc344ac45d0df8ba91c2f997876968c7e17422cd1dd844ab9828"
+    },
+    "opsx-archive": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "ai-coding/skills/opsx-archive/SKILL.md",
+      "computedHash": "ef3ca2e5d077f24248e47876e23a206bbcb63b60c73aee87844162019e44ff19"
+    },
+    "opsx-explore": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "ai-coding/skills/opsx-explore/SKILL.md",
+      "computedHash": "44b363b23817d7bd2d9c644e30ad6337251536ec1991bcc4c76ae32197fa0ee3"
+    },
+    "opsx-propose": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "ai-coding/skills/opsx-propose/SKILL.md",
+      "computedHash": "2f12355d38fc2ed18b7df648d98c9bb965b64fdc6adac4e2666c176aa9bf45cd"
+    },
+    "opsx-sync": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "ai-coding/skills/opsx-sync/SKILL.md",
+      "computedHash": "717afe7a53a93c1c078031162786ffb1304bb476928eb6d2a931f4cc0cdddd3b"
+    },
+    "opsx-trace-log": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "ai-coding/skills/opsx-trace-log/SKILL.md",
+      "computedHash": "3ba47a1597d718308ec39d61621195e93c995c69933df3aa5b120a72c97bba1b"
+    },
+    "opsx-verify": {
+      "source": "TE-9004076594/skills-pool",
+      "sourceType": "github",
+      "skillPath": "ai-coding/skills/opsx-verify/SKILL.md",
+      "computedHash": "0b4fa0b731083e97ab5baf59da60104f011b0a4da03b1f14ea32104e97dfbb9f"
+    }
+  }
+}

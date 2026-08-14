@@ -1,5 +1,7 @@
-## ADDED Requirements
+## Purpose
 
+Define the LLM-assisted content generation flow: prompt building, field-value JSON output, validation, and DeepSeek provider configuration.
+## Requirements
 ### Requirement: System builds constrained system prompt for LLM
 The system SHALL construct a high-constraint system prompt that instructs the LLM to output only valid field-value JSON, with no Markdown formatting, no extra commentary, and no formatting instructions. The LLM provider SHALL be DeepSeek (deepseek-chat) via OpenAI-compatible API.
 
@@ -26,6 +28,11 @@ DeepSeek API SHALL be the default LLM provider, accessed via its OpenAI-compatib
 #### Scenario: DeepSeek Function Calling for structured output
 - **WHEN** LLM is called for field generation
 - **THEN** the system SHALL use DeepSeek's Function Calling mode with a JSON Schema function definition to enforce structured output
+
+#### Scenario: LLM settings from settings service
+- **WHEN** the settings service has saved LLM configuration (provider, base URL, model, API key)
+- **THEN** the system SHALL use the saved configuration for document generation, overriding environment variable defaults
+- **AND** when no saved configuration exists, the system SHALL fall back to environment variables
 
 ### Requirement: System builds user prompt with field schema and business input
 The system SHALL construct a user prompt that includes the field JSON schema, business input data, and writing constraints (tone, max length, banned terms).
@@ -56,3 +63,4 @@ The system SHALL track the prompt template version used for each document genera
 #### Scenario: Record prompt version with generation
 - **WHEN** a document is generated using an LLM-generated field
 - **THEN** the system SHALL record the prompt template version, LLM model, temperature setting, and field schema version in the generation audit log
+

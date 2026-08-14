@@ -1,4 +1,8 @@
-## ADDED Requirements
+## Purpose
+
+Define requirements for exporting generated documents to Word and PDF formats.
+
+## Requirements
 
 ### Requirement: System exports document to Word (.docx) format
 The system SHALL generate and export documents in `.docx` format that preserves the original template styling.

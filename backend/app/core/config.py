@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     ENGINE_API_URL: str = "http://localhost:8001"
     PDF_CONVERSION_ENABLED: bool = True
 
+    # DeepSeek LLM (engine document generation)
+    DEEPSEEK_API_KEY: str = ""
+    LLM_API_BASE: str = "https://api.deepseek.com/v1"
+    LLM_MODEL: str = "deepseek-chat"
+
     class Config:
         env_file = ".env"
 

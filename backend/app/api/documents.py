@@ -27,6 +27,16 @@ class GenerateRequest(BaseModel):
     variables: dict
 
 
+class GeneratePreservingRequest(BaseModel):
+    """Generate document via in-place replacement, preserving all formatting."""
+    template_id: str
+    title: str | None = None
+    variables: dict = {}
+    table_data: dict[str, list[list]] | None = None
+    image_map: dict[str, str] | None = None  # placeholder -> base64 data URI or file path
+    object_map: dict[str, str] | None = None
+
+
 class GenerateWithLLMRequest(BaseModel):
     template_id: str
     title: str | None = None
@@ -130,6 +140,87 @@ def generate_single_document(
         "unresolved_placeholders": unresolved,
         "quality": quality.to_dict() if quality else None,
     }
+
+
+@router.post("/generate-preserving")
+def generate_preserving_format(
+    req: GeneratePreservingRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Generate a document via in-place replacement, preserving all formatting.
+
+    Text/tables/images/OLE objects are replaced in-place without rebuilding the
+    document, so all formatting (fonts, image geometry, table style) is preserved.
+    """
+    template = db.query(Template).filter(Template.id == req.template_id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="模板不存在")
+    if template.status != TemplateStatus.PUBLISHED:
+        raise HTTPException(status_code=400, detail="模板未发布")
+
+    from engine.app.core.renderer import generate_document_preserving_format
+
+    template_full_path = template_storage.get_full_path(template.file_path)
+    output_filename = f"{uuid.uuid4().hex}.docx"
+    output_rel_path = document_storage.save("", output_filename, b"")
+    output_full_path = document_storage.get_full_path(output_rel_path)
+
+    # Decode base64 image data URIs into bytes
+    image_map = None
+    if req.image_map:
+        image_map = {}
+        for key, value in req.image_map.items():
+            image_map[key] = _decode_image_value(value)
+
+    try:
+        generate_document_preserving_format(
+            template_path=template_full_path,
+            output_path=output_full_path,
+            variables=req.variables or {},
+            table_data=req.table_data,
+            image_map=image_map,
+            object_map=req.object_map,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"保格式生成失败: {str(e)}")
+
+    # Check for unresolved placeholders
+    unresolved = detect_unresolved_placeholders(output_full_path)
+
+    doc = Document(
+        title=req.title or f"文档_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}",
+        template_id=template.id,
+        template_version=template.current_version,
+        status=DocumentStatus.DRAFT,
+        variable_values=req.variables or {},
+        file_path=output_rel_path,
+        created_by=current_user.id,
+    )
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+
+    return {
+        "id": str(doc.id),
+        "title": doc.title,
+        "status": doc.status.value,
+        "mode": "preserving",
+        "unresolved_placeholders": unresolved,
+    }
+
+
+def _decode_image_value(value: str) -> bytes:
+    """Decode a base64 data URI into bytes, or return the value as a file path."""
+    import base64
+    if value.startswith('data:'):
+        try:
+            b64_data = value.split(',', 1)[1]
+            return base64.b64decode(b64_data)
+        except Exception:
+            pass
+    # Assume file path
+    return value
 
 
 @router.post("/generate-with-llm")

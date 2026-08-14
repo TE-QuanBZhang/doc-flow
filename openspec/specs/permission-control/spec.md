@@ -1,4 +1,8 @@
-## ADDED Requirements
+## Purpose
+
+Define the role-based permission model for template and document access.
+
+## Requirements
 
 ### Requirement: System supports role-based access control
 The system SHALL implement RBAC with three roles: system administrator, template administrator, and regular user.

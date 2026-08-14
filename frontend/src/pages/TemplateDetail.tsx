@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../services/api'
 
@@ -300,10 +300,15 @@ export default function TemplateDetail() {
   )
 }
 
+const PREVIEW_PAGE_W = 720
+const PREVIEW_PAGE_H = Math.round((PREVIEW_PAGE_W * 297) / 210)
+
 function PreviewContent({ templateId }: { templateId: string }) {
   const [html, setHtml] = useState<string | null>(null)
   const [loadingPreview, setLoadingPreview] = useState(true)
   const [previewError, setPreviewError] = useState('')
+  const [pages, setPages] = useState<Element[][]>([])
+  const measureRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setLoadingPreview(true)
@@ -317,6 +322,33 @@ function PreviewContent({ templateId }: { templateId: string }) {
       })
       .finally(() => setLoadingPreview(false))
   }, [templateId])
+
+  // Paginate: group doc blocks by A4 page height (blocks never split mid-element)
+  useEffect(() => {
+    if (!html) return
+    const container = measureRef.current
+    if (!container) return
+    const content = container.querySelector('.doc-preview') as HTMLElement | null
+    if (!content || content.children.length === 0) return
+
+    const cs = getComputedStyle(content)
+    const padV = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom)
+    const pageH = content.clientWidth * (297 / 210) - padV
+    const groups: Element[][] = []
+    let current: Element[] = []
+    let pageTop = 0
+    Array.from(content.children).forEach((child) => {
+      const el = child as HTMLElement
+      if (current.length > 0 && el.offsetTop - pageTop + el.offsetHeight > pageH) {
+        groups.push(current)
+        current = []
+        pageTop = el.offsetTop
+      }
+      current.push(el)
+    })
+    if (current.length) groups.push(current)
+    setPages(groups)
+  }, [html])
 
   if (loadingPreview) {
     return <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>加载预览中...</div>
@@ -332,7 +364,40 @@ function PreviewContent({ templateId }: { templateId: string }) {
   }
 
   return (
-    <div className="doc-preview-wrapper" style={{ maxHeight: '70vh', overflow: 'auto' }}
-      dangerouslySetInnerHTML={{ __html: html || '' }} />
+    <div>
+      {/* Off-screen measuring container (same width as pages) */}
+      <div
+        ref={measureRef}
+        style={{ position: 'absolute', visibility: 'hidden', left: -9999, top: 0, width: PREVIEW_PAGE_W }}
+        dangerouslySetInnerHTML={{ __html: html || '' }}
+      />
+      {/* Paginated A4 pages */}
+      <div style={{ maxHeight: '70vh', overflow: 'auto', padding: 16, background: '#f0f0f0', borderRadius: 8 }}>
+        {pages.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>文档内容为空</div>
+        ) : pages.map((els, i) => (
+          <div
+            key={i}
+            ref={(node) => {
+              if (node && node.childElementCount === 0) {
+                els.forEach((el) => node.appendChild(el.cloneNode(true)))
+              }
+            }}
+            className="doc-preview"
+            style={{
+              width: PREVIEW_PAGE_W,
+              minHeight: PREVIEW_PAGE_H,
+              background: '#fff',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.12)',
+              margin: '0 auto 24px',
+              position: 'relative',
+              boxSizing: 'border-box',
+            }}
+          >
+            <span style={{ position: 'absolute', right: 10, bottom: 6, fontSize: 11, color: '#bbb' }}>{i + 1}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }

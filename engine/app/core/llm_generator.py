@@ -17,13 +17,32 @@ from .prompt_builder import build_system_prompt, build_user_prompt, PromptVersio
 # ─── Configuration ───────────────────────────────────────────
 
 def get_llm_config() -> dict:
-    """Get LLM configuration from environment variables."""
+    """Get LLM configuration from settings service (.env) with env fallback.
+
+    Priority: SIRCHMUNK_WORK_PATH/.env (settings service) > environment variables.
+    """
+    saved = _saved_llm_settings()
     return {
-        "api_key": os.getenv("DEEPSEEK_API_KEY", ""),
-        "api_base": os.getenv("LLM_API_BASE", "https://api.deepseek.com/v1"),
-        "model": os.getenv("LLM_MODEL", "deepseek-chat"),
+        "api_key": saved.get("api_key") or os.getenv("DEEPSEEK_API_KEY", ""),
+        "api_base": saved.get("api_base") or os.getenv("LLM_API_BASE", "https://api.deepseek.com/v1"),
+        "model": saved.get("model") or os.getenv("LLM_MODEL", "deepseek-chat"),
         "temperature": float(os.getenv("LLM_TEMPERATURE", "0.3")),
         "max_tokens": int(os.getenv("LLM_MAX_TOKENS", "4096")),
+    }
+
+
+def _saved_llm_settings() -> dict:
+    """Read LLM settings saved by the settings service (~/.sirchmunk/.env)."""
+    try:
+        from dotenv import dotenv_values
+    except ImportError:
+        return {}
+    work_path = os.getenv("SIRCHMUNK_WORK_PATH", os.path.expanduser("~/.sirchmunk"))
+    env = dotenv_values(os.path.join(work_path, ".env"))
+    return {
+        "api_key": env.get("LLM_API_KEY", ""),
+        "api_base": env.get("LLM_BASE_URL", ""),
+        "model": env.get("LLM_MODEL_NAME", ""),
     }
 
 

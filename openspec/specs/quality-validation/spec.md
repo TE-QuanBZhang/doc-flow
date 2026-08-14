@@ -1,4 +1,8 @@
-## ADDED Requirements
+## Purpose
+
+Define quality checks applied to generated documents (style consistency, placeholder resolution, format fidelity).
+
+## Requirements
 
 ### Requirement: System validates style consistency between template and output
 The system SHALL compare the generated document's format specification against the original template's format specification, reporting any inconsistencies in page setup, styles, numbering, and table formatting.

@@ -1,4 +1,8 @@
-## ADDED Requirements
+## Purpose
+
+Define validation rules applied to template variable values before generation.
+
+## Requirements
 
 ### Requirement: System validates required fields before generation
 The system SHALL check that all required variables have non-empty values before generating a document.

@@ -66,6 +66,7 @@ export const api = {
 
   // Documents
   generateDocument: (data: any): ApiResponse<any> => http.post('/documents/generate', data),
+  generateDocumentPreserving: (data: any): ApiResponse<any> => http.post('/documents/generate-preserving', data),
   saveDraft: (data: any): ApiResponse<any> => http.post('/documents/drafts', data),
   getDocument: (id: string): ApiResponse<any> => http.get(`/documents/${id}`),
   previewDocument: (id: string): ApiResponse<any> => http.get(`/documents/${id}/preview`),

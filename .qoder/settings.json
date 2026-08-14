@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /Volumes/yun-ssd/work/doc-flow/hooks/ponytail-mode-tracker.js"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "task|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /Volumes/yun-ssd/work/doc-flow/hooks/ponytail-subagent.js"
+          }
+        ]
+      }
+    ]
+  }
+}

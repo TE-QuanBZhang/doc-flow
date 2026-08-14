@@ -1,4 +1,8 @@
-## ADDED Requirements
+## Purpose
+
+Define the extraction of formatting and structure from Word templates for 1:1 fidelity rendering.
+
+## Requirements
 
 ### Requirement: System extracts page setup from templates
 The system SHALL extract page-level formatting from `.docx` templates, including paper size, orientation, margins, header/footer distance, and section columns.

@@ -29,6 +29,7 @@ export default function DocumentGenerate() {
   const [generating, setGenerating] = useState(false)
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState('')
+  const [mode, setMode] = useState<'standard' | 'preserving'>('standard')
 
   useEffect(() => {
     api.getTemplates().then(setTemplates).catch(console.error)
@@ -56,10 +57,13 @@ export default function DocumentGenerate() {
     setError('')
     setResult(null)
     try {
-      const res = await api.generateDocument({
+      const payload = {
         template_id: selectedTemplate,
         variables: values,
-      })
+      }
+      const res = mode === 'preserving'
+        ? await api.generateDocumentPreserving(payload)
+        : await api.generateDocument(payload)
       setResult(res)
     } catch (err: any) {
       setError(err?.detail || '生成失败')
@@ -112,6 +116,27 @@ export default function DocumentGenerate() {
                 <option key={t.id} value={t.id}>{t.name} ({t.category || '未分类'})</option>
               ))}
             </select>
+
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <label style={{ fontSize: 14, fontWeight: 500, display: 'block', marginBottom: 8 }}>生成模式</label>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                  <input type="radio" name="gen-mode" checked={mode === 'standard'}
+                    onChange={() => setMode('standard')} />
+                  标准生成（重建文档）
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                  <input type="radio" name="gen-mode" checked={mode === 'preserving'}
+                    onChange={() => setMode('preserving')} />
+                  保格式替换（1:1 保留样式/图片/表格）
+                </label>
+              </div>
+              {mode === 'preserving' && (
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 8 }}>
+                  仅替换内容，不重建文档：字体、字号、图片大小位置、表格样式全部保留。
+                </p>
+              )}
+            </div>
           </div>
 
           {variables.length > 0 && (

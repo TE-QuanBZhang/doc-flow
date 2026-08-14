@@ -1,4 +1,8 @@
-## ADDED Requirements
+## Purpose
+
+Define the content field schema model used to describe template variables, their types, constraints, and metadata for document generation.
+
+## Requirements
 
 ### Requirement: Field schema supports type constraints
 The system SHALL define field schemas with type constraints including: string, number, date, enum, boolean, object, and array. Each type SHALL support additional validation rules.
