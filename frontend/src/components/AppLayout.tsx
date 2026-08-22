@@ -14,6 +14,7 @@ import {
   UserOutlined,
   LogoutOutlined,
   AppstoreOutlined,
+  ImportOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 import { clearToken } from '../services/api'
@@ -55,6 +56,11 @@ const menuItems: MenuItem[] = [
         key: '/generate',
         icon: <ThunderboltOutlined />,
         label: '文档生成',
+      },
+      {
+        key: '/batch-import',
+        icon: <ImportOutlined />,
+        label: '批量导入',
       },
       {
         key: '/tasks',

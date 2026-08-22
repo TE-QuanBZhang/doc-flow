@@ -76,11 +76,17 @@ export const api = {
   exportPdf: (id: string): ApiResponse<Blob> => http.get(`/documents/${id}/export/pdf`, { responseType: 'blob' }),
 
   // Batch tasks
-  createBatchTask: (data: any): ApiResponse<any> => http.post('/tasks/batch', data),
+  createBatchTask: (templateId: string, title: string): ApiResponse<any> =>
+    http.post('/tasks/batch', null, { params: { template_id: templateId, title } }),
+  importBatchData: (taskId: string, formData: FormData): ApiResponse<any> =>
+    http.post(`/tasks/batch/${taskId}/import`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  startBatchTask: (taskId: string): ApiResponse<any> => http.post(`/tasks/${taskId}/start`),
   getBatchTasks: (params?: Record<string, any>): ApiResponse<any> => http.get('/tasks', { params }),
   getBatchTask: (id: string): ApiResponse<any> => http.get(`/tasks/${id}`),
   retryBatchTask: (id: string): ApiResponse<any> => http.post(`/tasks/${id}/retry`),
   cancelBatchTask: (id: string): ApiResponse<any> => http.post(`/tasks/${id}/cancel`),
+  downloadBatchZip: (documentIds: string[]): ApiResponse<Blob> =>
+    http.post('/documents/export/batch-zip', { document_ids: documentIds }, { responseType: 'blob' }),
 
   // Auth
   login: (data: { username: string; password: string }): ApiResponse<any> => http.post('/auth/login', data),

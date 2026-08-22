@@ -30,6 +30,7 @@ import {
   ArrowLeftOutlined,
   ArrowRightOutlined,
   ThunderboltOutlined,
+  ImportOutlined,
 } from '@ant-design/icons'
 import { api } from '../services/api'
 
@@ -418,8 +419,15 @@ export default function DocumentGenerate() {
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <Title level={3} style={{ margin: 0 }}>文档生成</Title>
-        <Text type="secondary" style={{ fontSize: 13 }}>选择模板，填写数据，一键生成保真文档</Text>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <Title level={3} style={{ margin: 0 }}>文档生成</Title>
+            <Text type="secondary" style={{ fontSize: 13 }}>选择模板，填写数据，一键生成保真文档</Text>
+          </div>
+          <Button icon={<ImportOutlined />} onClick={() => navigate('/batch-import')}>
+            批量导入
+          </Button>
+        </div>
       </div>
 
       <Card style={{ borderRadius: 12, marginBottom: 24 }} styles={{ body: { padding: '24px 48px' } }}>

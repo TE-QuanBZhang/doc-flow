@@ -9,6 +9,7 @@ import Templates from './pages/Templates'
 import TemplateDetail from './pages/TemplateDetail'
 import DocumentGenerate from './pages/DocumentGenerate'
 import BatchTasks from './pages/BatchTasks'
+import BatchImport from './pages/BatchImport'
 import AppLayout from './components/AppLayout'
 import { GlobalProvider } from './chat/context/GlobalContext'
 import ChatPage from './chat/pages/ChatPage'
@@ -47,6 +48,7 @@ function App() {
                   <Route path="/templates/:id" element={<TemplateDetail />} />
                   <Route path="/generate/:templateId?" element={<DocumentGenerate />} />
                   <Route path="/tasks" element={<BatchTasks />} />
+                  <Route path="/batch-import" element={<BatchImport />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Route>
               </Routes>
