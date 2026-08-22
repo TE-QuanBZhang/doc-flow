@@ -8,7 +8,7 @@ from docx import Document as DocxDocument
 
 from .models import StyleSpec
 from .extractor import extract_format
-from .renderer import _jinja2_placeholder_pattern
+from .renderer import JINJA2_PATTERN
 
 
 # ─── 6.1 Style Consistency Check ─────────────────────────────
@@ -120,8 +120,7 @@ def check_unresolved_placeholders(output_path: str) -> list[dict]:
                     text_parts.append(para.text or "")
 
     all_text = "\n".join(text_parts)
-    pattern = _jinja2_placeholder_pattern()
-    found = pattern.findall(all_text)
+    found = JINJA2_PATTERN.findall(all_text)
     if not found:
         return []
     return [{"category": "placeholder", "item": p.strip(), "expected": "已替换", "actual": "未替换"}

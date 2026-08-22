@@ -366,6 +366,49 @@ def preview_document(
     return {"html": html}
 
 
+@router.get("/{document_id}/preview/pdf")
+def preview_document_pdf(
+    document_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get high-fidelity PDF preview of a document.
+
+    Uses LibreOffice headless to convert the .docx to PDF with content-hash
+    caching. Returns the PDF binary for inline display in a PDF viewer.
+
+    Falls back to an informative error if LibreOffice is not installed.
+    """
+    from fastapi.responses import FileResponse
+    from engine.app.core.pdf_converter import convert_to_pdf_cached, is_libreoffice_available
+
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc or not doc.file_path:
+        raise HTTPException(status_code=404, detail="文档不存在或未生成")
+
+    if not is_libreoffice_available():
+        raise HTTPException(
+            status_code=503,
+            detail="PDF 预览服务不可用：LibreOffice 未安装。请联系管理员安装 LibreOffice。",
+        )
+
+    docx_path = document_storage.get_full_path(doc.file_path)
+
+    try:
+        pdf_path = convert_to_pdf_cached(docx_path)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="文档文件不存在")
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=f"PDF 转换失败: {str(e)}")
+
+    return FileResponse(
+        pdf_path,
+        media_type="application/pdf",
+        filename=f"{doc.title or 'preview'}.pdf",
+        headers={"Content-Disposition": f'inline; filename="{doc.title or "preview"}.pdf"'},
+    )
+
+
 @router.get("/{document_id}/export/word")
 def export_word(
     document_id: str,
@@ -396,23 +439,28 @@ def export_pdf(
     """Export document as PDF."""
     from fastapi.responses import FileResponse
 
-    from engine.app.core.pdf_converter import convert_to_pdf
+    from engine.app.core.pdf_converter import convert_to_pdf_cached, is_libreoffice_available
 
     doc = db.query(Document).filter(Document.id == document_id).first()
     if not doc or not doc.file_path:
         raise HTTPException(status_code=404, detail="文档不存在")
 
+    if not is_libreoffice_available():
+        raise HTTPException(
+            status_code=503,
+            detail="PDF 导出服务不可用：LibreOffice 未安装。",
+        )
+
     docx_path = document_storage.get_full_path(doc.file_path)
 
-    import tempfile
-    import os
-    with tempfile.TemporaryDirectory() as tmpdir:
-        try:
-            pdf_path = convert_to_pdf(docx_path, tmpdir)
-            filename = f"{doc.title or 'document'}.pdf"
-            return FileResponse(pdf_path, media_type="application/pdf", filename=filename)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"PDF 转换失败: {str(e)}")
+    try:
+        pdf_path = convert_to_pdf_cached(docx_path)
+        filename = f"{doc.title or 'document'}.pdf"
+        return FileResponse(pdf_path, media_type="application/pdf", filename=filename)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="文档文件不存在")
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=f"PDF 转换失败: {str(e)}")
 
 
 @router.post("/export/batch-zip")
