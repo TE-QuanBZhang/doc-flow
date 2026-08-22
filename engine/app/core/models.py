@@ -87,7 +87,17 @@ class HeaderFooter:
     page_number_include_total: bool = False
 
 
-# ─── Complete Format Spec ──────────────────────────────────────
+# --- Per-section info ---
+
+@dataclass
+class SectionInfo:
+    """Page setup and header/footer for a single document section."""
+    page: PageSetup = field(default_factory=PageSetup)
+    header: HeaderFooter = field(default_factory=HeaderFooter)
+    footer: HeaderFooter = field(default_factory=HeaderFooter)
+
+
+# --- Complete Format Spec ---
 
 @dataclass
 class StyleSpec:
@@ -96,8 +106,10 @@ class StyleSpec:
     styles: dict[str, ParagraphStyle] = field(default_factory=dict)
     numbering: list[NumberingDefinition] = field(default_factory=list)
     table: TableFormat = field(default_factory=TableFormat)
+    tables: list[TableFormat] = field(default_factory=list)
     header: HeaderFooter = field(default_factory=HeaderFooter)
     footer: HeaderFooter = field(default_factory=HeaderFooter)
+    sections: list[SectionInfo] = field(default_factory=list)
     constraints: list[str] = field(default_factory=list)
 
     def fingerprint(self) -> str:

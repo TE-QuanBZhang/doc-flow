@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from app.core.template_parser import parse_template, validate_template_structure
-from app.core.renderer import generate_document, detect_unresolved_placeholders
+from app.core.renderer import generate_document_with_result, detect_unresolved_placeholders
 from app.core.html_renderer import render_to_html
 from app.core.pdf_converter import convert_to_pdf
 
@@ -47,10 +47,12 @@ def parse_template_endpoint(req: ParseRequest):
 def generate_document_endpoint(req: GenerateRequest):
     """Generate a document from a template with variable values."""
     try:
-        output = generate_document(req.template_path, req.variables, req.output_path)
-        unresolved = detect_unresolved_placeholders(output)
+        result = generate_document_with_result(req.template_path, req.variables, req.output_path)
+        unresolved = detect_unresolved_placeholders(result.output_path)
         return {
-            "output_path": output,
+            "output_path": result.output_path,
+            "render_mode_used": result.render_mode,
+            "warnings": result.warnings,
             "unresolved_placeholders": unresolved,
         }
     except Exception as e:

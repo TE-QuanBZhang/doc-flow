@@ -15,7 +15,7 @@ from app.models.user import User
 from app.api.deps import get_current_user
 from app.services.storage import document_storage, import_storage, template_storage
 from app.core.config import settings
-from engine.app.core.renderer import generate_document, detect_unresolved_placeholders
+from engine.app.core.renderer import generate_document, generate_document_with_result, detect_unresolved_placeholders
 from engine.app.core.html_renderer import render_to_html
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
@@ -103,9 +103,9 @@ def generate_single_document(
     output_filename = f"{uuid.uuid4().hex}.docx"
     output_rel_path = document_storage.save("", output_filename, b"")
 
-    # Generate the actual document
+    # Generate the actual document using unified pipeline (preserve mode first)
     output_full_path = document_storage.get_full_path(output_rel_path)
-    generate_document(template_full_path, req.variables, output_full_path)
+    render_result = generate_document_with_result(template_full_path, req.variables, output_full_path)
 
     # Check for unresolved placeholders
     unresolved = detect_unresolved_placeholders(output_full_path)
@@ -137,6 +137,8 @@ def generate_single_document(
         "id": str(doc.id),
         "title": doc.title,
         "status": doc.status.value,
+        "render_mode_used": render_result.render_mode,
+        "warnings": render_result.warnings,
         "unresolved_placeholders": unresolved,
         "quality": quality.to_dict() if quality else None,
     }

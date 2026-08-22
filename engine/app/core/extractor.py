@@ -23,6 +23,7 @@ from .models import (
     NumberingLevel,
     TableFormat,
     HeaderFooter,
+    SectionInfo,
 )
 
 
@@ -31,13 +32,31 @@ def extract_format(template_path: str) -> StyleSpec:
     doc = DocxDocument(template_path)
     spec = StyleSpec()
 
-    spec.page = _extract_page_setup(doc)
+    # Extract all sections (page setup + header/footer per section)
+    spec.sections = _extract_all_sections(doc)
+
+    # Backward compatibility: primary page/header/footer from first section
+    if spec.sections:
+        spec.page = spec.sections[0].page
+        spec.header = spec.sections[0].header
+        spec.footer = spec.sections[0].footer
+    else:
+        spec.page = _extract_page_setup(doc)
+        header, footer = _extract_header_footer(doc)
+        spec.header = header
+        spec.footer = footer
+
     spec.styles = _extract_styles(doc)
     spec.numbering = _extract_numbering(doc)
-    spec.table = _extract_table_format(doc)
-    header, footer = _extract_header_footer(doc)
-    spec.header = header
-    spec.footer = footer
+
+    # Extract all table formats
+    spec.tables = _extract_all_table_formats(doc)
+    # Backward compatibility: primary table from first table
+    if spec.tables:
+        spec.table = spec.tables[0]
+    else:
+        spec.table = _extract_table_format(doc)
+
     spec.constraints = _generate_constraints(spec)
 
     return spec
@@ -46,7 +65,11 @@ def extract_format(template_path: str) -> StyleSpec:
 # ─── 2.1 Page Setup ──────────────────────────────────────────
 
 def _extract_page_setup(doc: DocxDocument) -> PageSetup:
-    """Extract page-level settings from document sections."""
+    """Extract page-level settings from document sections.
+
+    Uses the last section's settings as the primary page setup, since the last
+    section typically represents the main body in multi-section documents.
+    """
     setup = PageSetup()
 
     for section in doc.sections:
@@ -84,9 +107,6 @@ def _extract_page_setup(doc: DocxDocument) -> PageSetup:
                         setup.columns = int(num_cols)
                     except (ValueError, TypeError):
                         pass
-
-        # Only extract from first section (primary) for MVP
-        break
 
     return setup
 
@@ -382,9 +402,12 @@ def _extract_table_format(doc: DocxDocument) -> TableFormat:
 # ─── 2.5 Header / Footer Extraction ───────────────────────────
 
 def _extract_header_footer(doc: DocxDocument) -> tuple[HeaderFooter, HeaderFooter]:
-    """Extract header and footer configuration."""
+    """Extract header and footer configuration from all sections."""
     header = HeaderFooter()
     footer = HeaderFooter()
+
+    header_contents: list[str] = []
+    footer_contents: list[str] = []
 
     for section in doc.sections:
         sect_pr = section._sectPr
@@ -404,32 +427,188 @@ def _extract_header_footer(doc: DocxDocument) -> tuple[HeaderFooter, HeaderFoote
                     if hdr_type in ('even', 'default'):
                         even_or_odd = True
 
-        header.different_odd_even = even_or_odd
-        footer.different_odd_even = even_or_odd
+        if even_or_odd:
+            header.different_odd_even = True
+            footer.different_odd_even = True
 
-        # Extract header content
+        # Extract complete header content (all paragraphs)
         try:
-            if section.header:
-                header.content = section.header.paragraphs[0].text if section.header.paragraphs else ""
-            if section.even_page_header:
-                pass  # content stored separately
+            if section.header and section.header.paragraphs:
+                texts = [p.text for p in section.header.paragraphs if p.text]
+                if texts:
+                    header_contents.append(" | ".join(texts))
         except Exception:
             pass
 
-        # Extract footer content
+        # Extract complete footer content (all paragraphs)
         try:
-            if section.footer:
-                footer.content = section.footer.paragraphs[0].text if section.footer.paragraphs else ""
+            if section.footer and section.footer.paragraphs:
+                texts = [p.text for p in section.footer.paragraphs if p.text]
+                if texts:
+                    footer_contents.append(" | ".join(texts))
         except Exception:
             pass
 
-        # First section only
-        break
+    # Use first section's content as primary, note if multiple sections differ
+    if header_contents:
+        header.content = header_contents[0]
+    if footer_contents:
+        footer.content = footer_contents[0]
 
     return header, footer
 
 
-# ─── 2.6 Fingerprint ──────────────────────────────────────────
+# --- 2.5b Multi-section extraction ---
+
+def _extract_all_sections(doc: DocxDocument) -> list[SectionInfo]:
+    """Extract per-section page setup and header/footer for every section."""
+    sections: list[SectionInfo] = []
+
+    for section in doc.sections:
+        si = SectionInfo()
+
+        # Page setup for this section
+        ps = PageSetup()
+        page_w = section.page_width
+        page_h = section.page_height
+        if page_w and page_h:
+            w_cm = _emu_to_cm(page_w)
+            h_cm = _emu_to_cm(page_h)
+            ps.size = _detect_paper_size(w_cm, h_cm)
+            ps.orientation = "landscape" if w_cm > h_cm else "portrait"
+
+        ps.margin = PageMargin(
+            top_cm=_emu_to_cm(section.top_margin) if section.top_margin else 2.54,
+            bottom_cm=_emu_to_cm(section.bottom_margin) if section.bottom_margin else 2.54,
+            left_cm=_emu_to_cm(section.left_margin) if section.left_margin else 3.17,
+            right_cm=_emu_to_cm(section.right_margin) if section.right_margin else 3.17,
+        )
+
+        if section.header_distance is not None:
+            ps.header_distance_cm = _emu_to_cm(section.header_distance)
+        if section.footer_distance is not None:
+            ps.footer_distance_cm = _emu_to_cm(section.footer_distance)
+
+        sect_pr = section._sectPr
+        if sect_pr is not None:
+            cols_elem = sect_pr.find(qn('w:cols'))
+            if cols_elem is not None:
+                num_cols = cols_elem.get(qn('w:num'))
+                if num_cols:
+                    try:
+                        ps.columns = int(num_cols)
+                    except (ValueError, TypeError):
+                        pass
+
+        si.page = ps
+
+        # Header/footer for this section
+        hdr = HeaderFooter()
+        ftr = HeaderFooter()
+
+        if sect_pr is not None:
+            title_pg = sect_pr.find(qn('w:titlePg'))
+            if title_pg is not None:
+                hdr.different_first_page = True
+                ftr.different_first_page = True
+
+        try:
+            if section.header and section.header.paragraphs:
+                texts = [p.text for p in section.header.paragraphs if p.text]
+                hdr.content = " | ".join(texts)
+        except Exception:
+            pass
+
+        try:
+            if section.footer and section.footer.paragraphs:
+                texts = [p.text for p in section.footer.paragraphs if p.text]
+                ftr.content = " | ".join(texts)
+        except Exception:
+            pass
+
+        si.header = hdr
+        si.footer = ftr
+        sections.append(si)
+
+    return sections
+
+
+# --- 2.4b Multi-table format extraction ---
+
+def _extract_all_table_formats(doc: DocxDocument) -> list[TableFormat]:
+    """Extract formatting from all tables in the document."""
+    formats: list[TableFormat] = []
+    seen_styles: set[str] = set()
+
+    for table in doc.tables:
+        tf = _extract_single_table_format(table)
+        style_key = tf.style_name
+        if style_key not in seen_styles:
+            seen_styles.add(style_key)
+            formats.append(tf)
+
+    return formats
+
+
+def _extract_single_table_format(table) -> TableFormat:
+    """Extract formatting from a single table element."""
+    tf = TableFormat()
+
+    if table.style and table.style.name:
+        tf.style_name = table.style.name
+
+    tbl_elem = table._tbl
+    tbl_pr = tbl_elem.find(qn('w:tblPr'))
+    if tbl_pr is not None:
+        tbl_borders = tbl_pr.find(qn('w:tblBorders'))
+        if tbl_borders is not None:
+            for border_name in ('top', 'bottom', 'left', 'right', 'insideH', 'insideV'):
+                border = tbl_borders.find(qn(f'w:{border_name}'))
+                if border is not None:
+                    sz = border.get(qn('w:sz'))
+                    if sz:
+                        try:
+                            tf.border_size_pt = int(sz) / 8
+                        except ValueError:
+                            pass
+                    color = border.get(qn('w:color'))
+                    if color:
+                        tf.border_color_hex = color
+
+        tbl_cell_mar = tbl_pr.find(qn('w:tblCellMar'))
+        if tbl_cell_mar is not None:
+            top = tbl_cell_mar.find(qn('w:top'))
+            if top is not None:
+                w_val = top.get(qn('w:w'))
+                if w_val:
+                    try:
+                        tf.cell_padding_pt = int(w_val) / 20
+                    except ValueError:
+                        pass
+
+    if table.rows:
+        first_row = table.rows[0]
+        for cell in first_row.cells:
+            for para in cell.paragraphs:
+                for run in para.runs:
+                    if run.bold:
+                        tf.header_bold = True
+                        break
+
+        for cell in first_row.cells:
+            tc_pr = cell._tc.find(qn('w:tcPr'))
+            if tc_pr is not None:
+                shade = tc_pr.find(qn('w:shd'))
+                if shade is not None:
+                    fill = shade.get(qn('w:fill'))
+                    if fill and fill != "auto":
+                        tf.shading_color_hex = fill
+                        break
+
+    return tf
+
+
+# --- 2.6 Fingerprint ---
 
 def compute_fingerprint(spec: StyleSpec) -> str:
     """Compute a SHA-256 fingerprint of the format specification."""
@@ -451,4 +630,6 @@ def _generate_constraints(spec: StyleSpec) -> list[str]:
         constraints.append("保留页眉内容")
     if spec.footer.content:
         constraints.append("保留页脚内容")
+    if len(spec.sections) > 1:
+        constraints.append(f"保留多节结构（共 {len(spec.sections)} 节）")
     return constraints
