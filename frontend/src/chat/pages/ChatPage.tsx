@@ -425,7 +425,7 @@ export default function HomePage() {
   const hasMessages = chatState.messages.length > 0;
 
   return (
-    <div className="h-screen flex animate-fade-in">
+    <div className="flex animate-fade-in" style={{ height: 'calc(100vh - 48px)', margin: '-24px', padding: 0 }}>
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
       {/* Web-based File Browser (fallback when Tkinter is unavailable, e.g. Docker) */}

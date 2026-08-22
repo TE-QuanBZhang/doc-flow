@@ -1,5 +1,28 @@
 import { useState, useEffect } from 'react'
+import {
+  Card,
+  Table,
+  Tag,
+  Button,
+  Typography,
+  Space,
+  Empty,
+  Spin,
+  Descriptions,
+  Progress,
+  Row,
+  Col,
+  Popconfirm,
+} from 'antd'
+import {
+  ReloadOutlined,
+  StopOutlined,
+  RedoOutlined,
+  UnorderedListOutlined,
+} from '@ant-design/icons'
 import { api } from '../services/api'
+
+const { Title, Text } = Typography
 
 interface BatchTask {
   id: string
@@ -11,6 +34,14 @@ interface BatchTask {
   created_at: string
 }
 
+const statusConfig: Record<string, { color: string; label: string }> = {
+  pending: { color: 'orange', label: '待处理' },
+  processing: { color: 'blue', label: '处理中' },
+  completed: { color: 'green', label: '已完成' },
+  failed: { color: 'red', label: '失败' },
+  cancelled: { color: 'default', label: '已取消' },
+}
+
 export default function BatchTasks() {
   const [tasks, setTasks] = useState<BatchTask[]>([])
   const [loading, setLoading] = useState(true)
@@ -19,8 +50,10 @@ export default function BatchTasks() {
 
   const loadTasks = () => {
     setLoading(true)
-    api.getBatchTasks().then((data: any) => setTasks(data || []))
-      .catch(console.error).finally(() => setLoading(false))
+    api.getBatchTasks()
+      .then((data: any) => setTasks(data || []))
+      .catch(console.error)
+      .finally(() => setLoading(false))
   }
 
   useEffect(() => { loadTasks() }, [])
@@ -40,105 +73,140 @@ export default function BatchTasks() {
     loadTasks()
   }
 
+  const columns = [
+    {
+      title: '任务名称',
+      dataIndex: 'title',
+      key: 'title',
+      render: (text: string) => <Text strong>{text}</Text>,
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status: string) => {
+        const cfg = statusConfig[status] || { color: 'default', label: status }
+        return <Tag color={cfg.color}>{cfg.label}</Tag>
+      },
+    },
+    {
+      title: '进度',
+      key: 'progress',
+      render: (_: any, record: BatchTask) => (
+        <div style={{ minWidth: 120 }}>
+          <Progress
+            percent={record.total_count > 0 ? Math.round((record.completed_count / record.total_count) * 100) : 0}
+            size="small"
+            status={record.status === 'failed' ? 'exception' : undefined}
+          />
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {record.completed_count}/{record.total_count} 完成
+            {record.failed_count > 0 && ` · ${record.failed_count} 失败`}
+          </Text>
+        </div>
+      ),
+    },
+    {
+      title: '创建时间',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      render: (text: string) => <Text type="secondary" style={{ fontSize: 13 }}>{text}</Text>,
+    },
+    {
+      title: '操作',
+      key: 'action',
+      render: (_: any, record: BatchTask) => (
+        <Space>
+          {record.status === 'processing' && (
+            <Popconfirm title="确定取消此任务？" onConfirm={() => handleCancel(record.id)}>
+              <Button size="small" danger icon={<StopOutlined />}>取消</Button>
+            </Popconfirm>
+          )}
+          {record.failed_count > 0 && (
+            <Button size="small" icon={<RedoOutlined />} onClick={() => handleRetry(record.id)}>
+              重试
+            </Button>
+          )}
+        </Space>
+      ),
+    },
+  ]
+
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 600 }}>批量任务</h1>
-        <button onClick={loadTasks}
-          style={{ background: 'var(--bg)', border: '1px solid var(--border)', padding: '8px 16px', borderRadius: 6, fontSize: 13 }}>
-          ↻ 刷新
-        </button>
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <Title level={3} style={{ margin: 0 }}>批量任务</Title>
+            <Text type="secondary" style={{ fontSize: 13 }}>管理批量文档生成任务</Text>
+          </div>
+          <Button icon={<ReloadOutlined />} onClick={loadTasks}>刷新</Button>
+        </div>
       </div>
 
-      {loading ? <div style={{ color: 'var(--text-secondary)' }}>加载中...</div> : tasks.length === 0 ? (
-        <div style={{ background: '#fff', borderRadius: 8, padding: 40, textAlign: 'center', border: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
-          <h3 style={{ marginBottom: 8 }}>暂无批量任务</h3>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>通过批量生成功能创建任务</p>
-        </div>
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 80 }}><Spin size="large" /></div>
+      ) : tasks.length === 0 ? (
+        <Card style={{ borderRadius: 12 }}>
+          <Empty
+            image={<UnorderedListOutlined style={{ fontSize: 48, color: '#cbd5e1' }} />}
+            description="暂无批量任务"
+          />
+        </Card>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: selectedTask ? '1fr 1fr' : '1fr', gap: 16 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {tasks.map(task => (
-              <div key={task.id}
-                onClick={() => setSelectedTask(task.id)}
-                style={{
-                  background: '#fff', borderRadius: 8, padding: 16, border: '1px solid var(--border)',
-                  cursor: 'pointer',
-                  borderColor: selectedTask === task.id ? 'var(--primary)' : 'var(--border)',
-                }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{task.title}</div>
-                    <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
-                      {task.completed_count}/{task.total_count} 完成 · {task.failed_count} 失败
-                    </div>
-                  </div>
-                  <span style={{
-                    padding: '2px 10px', borderRadius: 12, fontSize: 12,
-                    background: task.status === 'completed' ? '#f6ffed' : task.status === 'failed' ? '#fff2f0' : '#fffbe6',
-                    color: task.status === 'completed' ? 'var(--success)' : task.status === 'failed' ? 'var(--error)' : 'var(--warning)',
-                  }}>
-                    {{ pending: '待处理', processing: '处理中', completed: '已完成', failed: '失败', cancelled: '已取消' }[task.status] || task.status}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-
+        <Row gutter={16}>
+          <Col xs={24} lg={taskDetail ? 14 : 24}>
+            <Card style={{ borderRadius: 12 }} styles={{ body: { padding: 0 } }}>
+              <Table
+                dataSource={tasks}
+                columns={columns}
+                rowKey="id"
+                pagination={false}
+                onRow={(record) => ({
+                  onClick: () => setSelectedTask(record.id),
+                  style: {
+                    cursor: 'pointer',
+                    background: selectedTask === record.id ? '#eff6ff' : undefined,
+                  },
+                })}
+              />
+            </Card>
+          </Col>
           {taskDetail && (
-            <div style={{ background: '#fff', borderRadius: 8, padding: 16, border: '1px solid var(--border)' }}>
-              <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>任务详情</h3>
-              <div style={{ fontSize: 14, marginBottom: 12 }}>
-                <div style={{ marginBottom: 4 }}>状态：{taskDetail.status}</div>
-                <div style={{ marginBottom: 4 }}>总计：{taskDetail.total_count} 条</div>
-                <div style={{ marginBottom: 4 }}>已完成：{taskDetail.completed_count}</div>
-                <div style={{ marginBottom: 12 }}>失败：{taskDetail.failed_count}</div>
-              </div>
+            <Col xs={24} lg={10}>
+              <Card title="任务详情" style={{ borderRadius: 12 }}>
+                <Descriptions column={1} size="small">
+                  <Descriptions.Item label="状态">
+                    <Tag color={statusConfig[taskDetail.status]?.color}>
+                      {statusConfig[taskDetail.status]?.label || taskDetail.status}
+                    </Tag>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="总计">{taskDetail.total_count} 条</Descriptions.Item>
+                  <Descriptions.Item label="已完成">{taskDetail.completed_count}</Descriptions.Item>
+                  <Descriptions.Item label="失败">{taskDetail.failed_count}</Descriptions.Item>
+                </Descriptions>
 
-              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                {taskDetail.status === 'processing' && (
-                  <button onClick={() => handleCancel(taskDetail.id)}
-                    style={{ background: 'var(--error)', color: '#fff', padding: '6px 16px', borderRadius: 6, fontSize: 13 }}>
-                    取消任务
-                  </button>
+                {taskDetail.items && taskDetail.items.length > 0 && (
+                  <>
+                    <Title level={5} style={{ marginTop: 16, marginBottom: 8 }}>处理记录</Title>
+                    <div style={{ maxHeight: 300, overflow: 'auto' }}>
+                      <Table
+                        dataSource={taskDetail.items.map((item: any, i: number) => ({ ...item, key: i }))}
+                        columns={[
+                          { title: '行', dataIndex: 'row', render: (r: number) => r + 1, width: 60 },
+                          { title: '状态', dataIndex: 'status', width: 80 },
+                          { title: '错误', dataIndex: 'error', render: (e: string) => e || '-' },
+                        ]}
+                        pagination={false}
+                        size="small"
+                      />
+                    </div>
+                  </>
                 )}
-                {taskDetail.failed_count > 0 && (
-                  <button onClick={() => handleRetry(taskDetail.id)}
-                    style={{ background: 'var(--warning)', color: '#fff', padding: '6px 16px', borderRadius: 6, fontSize: 13 }}>
-                    重试失败项
-                  </button>
-                )}
-              </div>
-
-              {taskDetail.items && taskDetail.items.length > 0 && (
-                <>
-                  <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>处理记录</h4>
-                  <div style={{ maxHeight: 300, overflow: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                      <thead>
-                        <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                          <th style={{ textAlign: 'left', padding: '6px 8px' }}>行</th>
-                          <th style={{ textAlign: 'left', padding: '6px 8px' }}>状态</th>
-                          <th style={{ textAlign: 'left', padding: '6px 8px' }}>错误</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {taskDetail.items.map((item: any, i: number) => (
-                          <tr key={i} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                            <td style={{ padding: '6px 8px' }}>{item.row + 1}</td>
-                            <td style={{ padding: '6px 8px' }}>{item.status}</td>
-                            <td style={{ padding: '6px 8px', color: 'var(--error)' }}>{item.error || '-'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
-            </div>
+              </Card>
+            </Col>
           )}
-        </div>
+        </Row>
       )}
     </div>
   )

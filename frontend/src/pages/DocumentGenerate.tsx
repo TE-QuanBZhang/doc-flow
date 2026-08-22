@@ -1,12 +1,47 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
+import {
+  Steps,
+  Button,
+  Card,
+  Input,
+  Select,
+  Form,
+  Typography,
+  Space,
+  Tag,
+  Row,
+  Col,
+  Empty,
+  Spin,
+  Result,
+  Alert,
+  Divider,
+  Tooltip,
+} from 'antd'
+import {
+  FileTextOutlined,
+  EditOutlined,
+  EyeOutlined,
+  CheckCircleOutlined,
+  DownloadOutlined,
+  RedoOutlined,
+  SearchOutlined,
+  ArrowLeftOutlined,
+  ArrowRightOutlined,
+  ThunderboltOutlined,
+} from '@ant-design/icons'
 import { api } from '../services/api'
+
+const { Title, Text, Paragraph } = Typography
 
 interface Template {
   id: string
   name: string
   category: string
   description: string | null
+  status: string
+  version: string
 }
 
 interface Variable {
@@ -22,34 +57,62 @@ interface Variable {
 
 export default function DocumentGenerate() {
   const { templateId } = useParams()
+  const navigate = useNavigate()
+  const [currentStep, setCurrentStep] = useState(0)
   const [templates, setTemplates] = useState<Template[]>([])
-  const [selectedTemplate, setSelectedTemplate] = useState<string>(templateId || '')
+  const [templatesLoading, setTemplatesLoading] = useState(true)
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
   const [variables, setVariables] = useState<Variable[]>([])
   const [values, setValues] = useState<Record<string, string>>({})
+  const [variablesLoading, setVariablesLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState('')
-  const [mode, setMode] = useState<'standard' | 'preserving'>('standard')
+  const [searchText, setSearchText] = useState('')
 
   useEffect(() => {
-    api.getTemplates().then(setTemplates).catch(console.error)
-  }, [])
-
-  useEffect(() => {
-    if (!selectedTemplate) {
-      setVariables([])
-      setValues({})
-      return
-    }
-    api.getVariables(selectedTemplate).then((vars: any) => {
-      setVariables(vars || [])
-      const defaults: Record<string, string> = {}
-      ;(vars || []).forEach((v: Variable) => {
-        defaults[v.name] = v.default_value || ''
+    setTemplatesLoading(true)
+    api.getTemplates()
+      .then((res) => {
+        const list = Array.isArray(res) ? res : (res?.data ?? [])
+        setTemplates(list)
+        if (templateId) {
+          const found = list.find((t: Template) => t.id === templateId)
+          if (found) handleSelectTemplate(found)
+        }
       })
-      setValues(defaults)
-    }).catch(console.error)
-  }, [selectedTemplate])
+      .catch(console.error)
+      .finally(() => setTemplatesLoading(false))
+  }, [templateId])
+
+  const handleSelectTemplate = (template: Template) => {
+    setSelectedTemplate(template)
+    setVariablesLoading(true)
+    api.getVariables(template.id)
+      .then((vars: any) => {
+        const varList = vars || []
+        setVariables(varList)
+        const defaults: Record<string, string> = {}
+        varList.forEach((v: Variable) => {
+          defaults[v.name] = v.default_value || ''
+        })
+        setValues(defaults)
+      })
+      .catch(console.error)
+      .finally(() => setVariablesLoading(false))
+  }
+
+  const handleValueChange = (name: string, value: string) => {
+    setValues((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const validateFields = (): boolean => {
+    const required = variables.filter((v) => v.is_required)
+    return required.every((v) => {
+      const val = values[v.name]
+      return val !== undefined && val !== null && val.toString().trim() !== ''
+    })
+  }
 
   const handleGenerate = async () => {
     if (!selectedTemplate) return
@@ -57,141 +120,358 @@ export default function DocumentGenerate() {
     setError('')
     setResult(null)
     try {
-      const payload = {
-        template_id: selectedTemplate,
+      const res = await api.generateDocumentPreserving({
+        template_id: selectedTemplate.id,
         variables: values,
-      }
-      const res = mode === 'preserving'
-        ? await api.generateDocumentPreserving(payload)
-        : await api.generateDocument(payload)
+      })
       setResult(res)
+      setCurrentStep(3)
     } catch (err: any) {
-      setError(err?.detail || '生成失败')
+      setError(err?.detail || '生成失败，请重试')
     } finally {
       setGenerating(false)
     }
   }
 
-  return (
-    <div style={{ maxWidth: 1000 }}>
-      <h1 style={{ fontSize: 24, fontWeight: 600, marginBottom: 24 }}>文档生成</h1>
+  const handleReset = () => {
+    setCurrentStep(0)
+    setSelectedTemplate(null)
+    setVariables([])
+    setValues({})
+    setResult(null)
+    setError('')
+  }
 
-      {result ? (
-        <div style={{ background: '#fff', borderRadius: 8, padding: 24, border: '1px solid var(--border)' }}>
-          <div style={{ textAlign: 'center', marginBottom: 20 }}>
-            <div style={{ fontSize: 40, marginBottom: 8 }}>✅</div>
-            <h3 style={{ marginBottom: 4 }}>文档生成成功</h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>文档 ID: {result.id}</p>
-          </div>
+  const filteredTemplates = templates.filter(
+    (t) => !searchText || t.name.toLowerCase().includes(searchText.toLowerCase())
+  )
 
-          {result.unresolved_placeholders?.length > 0 && (
-            <div style={{ background: '#fffbe6', border: '1px solid #ffe58f', borderRadius: 6, padding: 12, marginBottom: 16, fontSize: 13 }}>
-              ⚠️ 以下占位符未替换：{result.unresolved_placeholders.join(', ')}
-            </div>
-          )}
+  const steps = [
+    { title: '选择模板', icon: <FileTextOutlined /> },
+    { title: '填写数据', icon: <EditOutlined /> },
+    { title: '确认预览', icon: <EyeOutlined /> },
+    { title: '生成完成', icon: <CheckCircleOutlined /> },
+  ]
 
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-            <a href={`/api/documents/${result.id}/export/word`} download
-              style={{ background: 'var(--primary)', color: '#fff', padding: '10px 24px', borderRadius: 6, fontSize: 14 }}>
-              下载 Word
-            </a>
-            <a href={`/api/documents/${result.id}/export/pdf`} download
-              style={{ background: '#52c41a', color: '#fff', padding: '10px 24px', borderRadius: 6, fontSize: 14 }}>
-              下载 PDF
-            </a>
-            <button onClick={() => { setResult(null); setGenerating(false) }}
-              style={{ background: 'var(--bg)', color: 'var(--text)', padding: '10px 24px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 14 }}>
-              重新生成
-            </button>
-          </div>
-        </div>
+  const renderStep0 = () => (
+    <div>
+      <div style={{ marginBottom: 20 }}>
+        <Input
+          placeholder="搜索模板..."
+          prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          style={{ maxWidth: 360 }}
+          allowClear
+          size="large"
+        />
+      </div>
+
+      {templatesLoading ? (
+        <div style={{ textAlign: 'center', padding: 60 }}><Spin size="large" /></div>
+      ) : filteredTemplates.length === 0 ? (
+        <Empty description="暂无可用模板，请先在模板中心上传" />
       ) : (
-        <>
-          <div style={{ background: '#fff', borderRadius: 8, padding: 24, border: '1px solid var(--border)', marginBottom: 16 }}>
-            <label style={{ fontSize: 14, fontWeight: 500, display: 'block', marginBottom: 8 }}>选择模板</label>
-            <select value={selectedTemplate} onChange={e => setSelectedTemplate(e.target.value)}
-              style={{ maxWidth: 400 }}>
-              <option value="">-- 请选择模板 --</option>
-              {templates.map(t => (
-                <option key={t.id} value={t.id}>{t.name} ({t.category || '未分类'})</option>
-              ))}
-            </select>
-
-            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-              <label style={{ fontSize: 14, fontWeight: 500, display: 'block', marginBottom: 8 }}>生成模式</label>
-              <div style={{ display: 'flex', gap: 12 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
-                  <input type="radio" name="gen-mode" checked={mode === 'standard'}
-                    onChange={() => setMode('standard')} />
-                  标准生成（重建文档）
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
-                  <input type="radio" name="gen-mode" checked={mode === 'preserving'}
-                    onChange={() => setMode('preserving')} />
-                  保格式替换（1:1 保留样式/图片/表格）
-                </label>
-              </div>
-              {mode === 'preserving' && (
-                <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 8 }}>
-                  仅替换内容，不重建文档：字体、字号、图片大小位置、表格样式全部保留。
-                </p>
-              )}
-            </div>
-          </div>
-
-          {variables.length > 0 && (
-            <div style={{ background: '#fff', borderRadius: 8, padding: 24, border: '1px solid var(--border)', marginBottom: 16 }}>
-              <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>填写字段</h3>
-              <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))' }}>
-                {variables.map((v) => (
-                  <div key={v.name}>
-                    <label style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>
-                      {v.label || v.name}
-                      {v.is_required && <span style={{ color: 'var(--error)' }}> *</span>}
-                    </label>
-                    {v.description && (
-                      <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>{v.description}</p>
-                    )}
-                    {v.var_type === 'boolean' ? (
-                      <select value={values[v.name] || ''} onChange={e => setValues({...values, [v.name]: e.target.value})}>
-                        <option value="">请选择</option>
-                        <option value="true">是</option>
-                        <option value="false">否</option>
-                      </select>
-                    ) : v.var_type === 'enum' && v.enum_options ? (
-                      <select value={values[v.name] || ''} onChange={e => setValues({...values, [v.name]: e.target.value})}>
-                        <option value="">请选择</option>
-                        {v.enum_options.map(o => <option key={o} value={o}>{o}</option>)}
-                      </select>
-                    ) : v.var_type === 'number' ? (
-                      <input type="number" value={values[v.name] || ''}
-                        onChange={e => setValues({...values, [v.name]: e.target.value})} />
-                    ) : (
-                      <input type="text" value={values[v.name] || ''}
-                        onChange={e => setValues({...values, [v.name]: e.target.value})}
-                        placeholder={`输入${v.label || v.name}`} />
+        <Row gutter={[16, 16]}>
+          {filteredTemplates.map((t) => (
+            <Col key={t.id} xs={24} sm={12} lg={8} xl={6}>
+              <Card
+                hoverable
+                onClick={() => handleSelectTemplate(t)}
+                style={{
+                  borderRadius: 12,
+                  border: selectedTemplate?.id === t.id ? '2px solid #2563eb' : '1px solid #f1f5f9',
+                  background: selectedTemplate?.id === t.id ? '#eff6ff' : '#fff',
+                }}
+                styles={{ body: { padding: 20 } }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  <div style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    background: selectedTemplate?.id === t.id ? '#2563eb' : '#f1f5f9',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    transition: 'all 0.2s',
+                  }}>
+                    <FileTextOutlined style={{
+                      fontSize: 18,
+                      color: selectedTemplate?.id === t.id ? '#fff' : '#64748b',
+                    }} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <Text strong style={{ fontSize: 14, display: 'block', marginBottom: 4 }}>
+                      {t.name}
+                    </Text>
+                    <Space size={4} wrap>
+                      {t.category && <Tag style={{ borderRadius: 4, fontSize: 11 }}>{t.category}</Tag>}
+                      <Text type="secondary" style={{ fontSize: 12 }}>v{t.version}</Text>
+                    </Space>
+                    {t.description && (
+                      <Paragraph type="secondary" style={{ fontSize: 12, marginTop: 6, marginBottom: 0 }} ellipsis={{ rows: 2 }}>
+                        {t.description}
+                      </Paragraph>
                     )}
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                </div>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      )}
+    </div>
+  )
 
-          {error && (
-            <div style={{ background: '#fff2f0', border: '1px solid #ffccc7', borderRadius: 6, padding: 12, marginBottom: 16, color: 'var(--error)', fontSize: 14 }}>
-              ❌ {error}
-            </div>
-          )}
+  const renderStep1 = () => (
+    <div>
+      {variablesLoading ? (
+        <div style={{ textAlign: 'center', padding: 60 }}><Spin size="large" /></div>
+      ) : variables.length === 0 ? (
+        <Result
+          icon={<CheckCircleOutlined style={{ color: '#10b981' }} />}
+          title="该模板无需填写字段"
+          subTitle="模板中没有检测到变量，可以直接生成文档"
+          extra={
+            <Button type="primary" onClick={() => setCurrentStep(2)}>
+              下一步
+            </Button>
+          }
+        />
+      ) : (
+        <Card style={{ borderRadius: 12 }} styles={{ body: { padding: 24 } }}>
+          <div style={{ marginBottom: 20 }}>
+            <Text strong style={{ fontSize: 15 }}>填写文档字段</Text>
+            <br />
+            <Text type="secondary" style={{ fontSize: 13 }}>
+              共 {variables.length} 个字段，{variables.filter((v) => v.is_required).length} 个必填
+            </Text>
+          </div>
 
-          <button onClick={handleGenerate} disabled={!selectedTemplate || generating}
-            style={{
-              background: !selectedTemplate ? '#d9d9d9' : 'var(--primary)',
-              color: '#fff', padding: '12px 32px', borderRadius: 6, fontSize: 15, fontWeight: 600,
-              opacity: generating ? 0.7 : 1,
-            }}>
-            {generating ? '生成中...' : '生成文档'}
-          </button>
-        </>
+          <Row gutter={[24, 20]}>
+            {variables.map((v) => (
+              <Col key={v.name} xs={24} sm={12}>
+                <Form.Item
+                  label={
+                    <Space>
+                      <span>{v.label || v.name}</span>
+                      {v.is_required && <span style={{ color: '#ef4444' }}>*</span>}
+                    </Space>
+                  }
+                  required={v.is_required}
+                  style={{ marginBottom: 0 }}
+                  help={v.description}
+                >
+                  {v.var_type === 'boolean' ? (
+                    <Select
+                      value={values[v.name] || undefined}
+                      onChange={(val) => handleValueChange(v.name, val)}
+                      placeholder="请选择"
+                      options={[
+                        { label: '是', value: 'true' },
+                        { label: '否', value: 'false' },
+                      ]}
+                    />
+                  ) : v.var_type === 'enum' && v.enum_options ? (
+                    <Select
+                      value={values[v.name] || undefined}
+                      onChange={(val) => handleValueChange(v.name, val)}
+                      placeholder="请选择"
+                      options={v.enum_options.map((o) => ({ label: o, value: o }))}
+                    />
+                  ) : v.var_type === 'number' ? (
+                    <Input
+                      type="number"
+                      value={values[v.name] || ''}
+                      onChange={(e) => handleValueChange(v.name, e.target.value)}
+                      placeholder={`输入${v.label || v.name}`}
+                    />
+                  ) : (
+                    <Input
+                      value={values[v.name] || ''}
+                      onChange={(e) => handleValueChange(v.name, e.target.value)}
+                      placeholder={`输入${v.label || v.name}`}
+                    />
+                  )}
+                </Form.Item>
+              </Col>
+            ))}
+          </Row>
+        </Card>
+      )}
+    </div>
+  )
+
+  const renderStep2 = () => (
+    <div>
+      <Card style={{ borderRadius: 12, marginBottom: 16 }} styles={{ body: { padding: 24 } }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div>
+            <Text strong style={{ fontSize: 15 }}>确认文档信息</Text>
+            <br />
+            <Text type="secondary" style={{ fontSize: 13 }}>请检查以下信息，确认无误后生成文档</Text>
+          </div>
+          <Tag color="blue" icon={<ThunderboltOutlined />}>1:1 保真模式</Tag>
+        </div>
+
+        <Divider style={{ margin: '12px 0 16px' }} />
+
+        <Row gutter={[24, 16]}>
+          <Col xs={24} sm={8}>
+            <Text type="secondary" style={{ fontSize: 12 }}>使用模板</Text>
+            <div style={{ fontWeight: 500, marginTop: 4 }}>{selectedTemplate?.name}</div>
+          </Col>
+          <Col xs={24} sm={8}>
+            <Text type="secondary" style={{ fontSize: 12 }}>模板分类</Text>
+            <div style={{ fontWeight: 500, marginTop: 4 }}>{selectedTemplate?.category || '未分类'}</div>
+          </Col>
+          <Col xs={24} sm={8}>
+            <Text type="secondary" style={{ fontSize: 12 }}>填写字段数</Text>
+            <div style={{ fontWeight: 500, marginTop: 4 }}>
+              {Object.values(values).filter((v) => v && v.trim() !== '').length} / {variables.length}
+            </div>
+          </Col>
+        </Row>
+
+        {variables.length > 0 && (
+          <>
+            <Divider style={{ margin: '16px 0' }} />
+            <Text type="secondary" style={{ fontSize: 12, marginBottom: 8, display: 'block' }}>字段值预览</Text>
+            <Row gutter={[16, 8]}>
+              {variables.map((v) => (
+                <Col key={v.name} xs={24} sm={12}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f8fafc' }}>
+                    <Text type="secondary" style={{ fontSize: 13 }}>{v.label || v.name}</Text>
+                    <Text style={{ fontSize: 13, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {values[v.name] || <Text type="secondary">未填写</Text>}
+                    </Text>
+                  </div>
+                </Col>
+              ))}
+            </Row>
+          </>
+        )}
+      </Card>
+
+      {error && (
+        <Alert
+          type="error"
+          message={error}
+          showIcon
+          closable
+          onClose={() => setError('')}
+          style={{ marginBottom: 16, borderRadius: 8 }}
+        />
+      )}
+    </div>
+  )
+
+  const renderStep3 = () => {
+    if (!result) return null
+    return (
+      <Result
+        status="success"
+        title="文档生成成功"
+        subTitle={`文档 ID: ${result.id}`}
+        extra={[
+          <Button
+            key="word"
+            type="primary"
+            icon={<DownloadOutlined />}
+            href={`/api/documents/${result.id}/export/word`}
+          >
+            下载 Word
+          </Button>,
+          <Button
+            key="pdf"
+            icon={<DownloadOutlined />}
+            href={`/api/documents/${result.id}/export/pdf`}
+          >
+            下载 PDF
+          </Button>,
+          <Button key="reset" icon={<RedoOutlined />} onClick={handleReset}>
+            重新生成
+          </Button>,
+        ]}
+      >
+        {result.unresolved_placeholders?.length > 0 && (
+          <Alert
+            type="warning"
+            message="以下占位符未替换"
+            description={result.unresolved_placeholders.join(', ')}
+            showIcon
+            style={{ marginTop: 16, borderRadius: 8, textAlign: 'left' }}
+          />
+        )}
+      </Result>
+    )
+  }
+
+  const canProceed = () => {
+    if (currentStep === 0) return selectedTemplate !== null
+    if (currentStep === 1) return validateFields()
+    return true
+  }
+
+  return (
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <Title level={3} style={{ margin: 0 }}>文档生成</Title>
+        <Text type="secondary" style={{ fontSize: 13 }}>选择模板，填写数据，一键生成保真文档</Text>
+      </div>
+
+      <Card style={{ borderRadius: 12, marginBottom: 24 }} styles={{ body: { padding: '24px 48px' } }}>
+        <Steps
+          current={currentStep}
+          items={steps}
+          style={{ maxWidth: 600, margin: '0 auto' }}
+        />
+      </Card>
+
+      <div style={{ marginBottom: 24 }}>
+        {currentStep === 0 && renderStep0()}
+        {currentStep === 1 && renderStep1()}
+        {currentStep === 2 && renderStep2()}
+        {currentStep === 3 && renderStep3()}
+      </div>
+
+      {currentStep < 3 && (
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Button
+            icon={<ArrowLeftOutlined />}
+            onClick={() => currentStep === 0 ? navigate('/templates') : setCurrentStep(currentStep - 1)}
+          >
+            {currentStep === 0 ? '返回模板中心' : '上一步'}
+          </Button>
+          {currentStep < 2 && (
+            <Button
+              type="primary"
+              icon={<ArrowRightOutlined />}
+              disabled={!canProceed()}
+              onClick={() => {
+                if (currentStep === 1 && variables.length === 0) {
+                  setCurrentStep(2)
+                } else {
+                  setCurrentStep(currentStep + 1)
+                }
+              }}
+            >
+              下一步
+            </Button>
+          )}
+          {currentStep === 2 && (
+            <Button
+              type="primary"
+              icon={<ThunderboltOutlined />}
+              loading={generating}
+              onClick={handleGenerate}
+            >
+              生成文档
+            </Button>
+          )}
+        </div>
       )}
     </div>
   )

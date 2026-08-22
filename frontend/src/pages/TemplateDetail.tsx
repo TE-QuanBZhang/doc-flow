@@ -1,8 +1,36 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import {
+  Card,
+  Tabs,
+  Table,
+  Tag,
+  Button,
+  Typography,
+  Space,
+  Descriptions,
+  Input,
+  Select,
+  Checkbox,
+  Empty,
+  Spin,
+  Row,
+  Col,
+  Statistic,
+} from 'antd'
+import {
+  ThunderboltOutlined,
+  PlusOutlined,
+  SaveOutlined,
+  DeleteOutlined,
+  ArrowLeftOutlined,
+  FileTextOutlined,
+} from '@ant-design/icons'
 import { api } from '../services/api'
 
-interface TemplateDetail {
+const { Title, Text, Paragraph } = Typography
+
+interface TemplateData {
   id: string
   name: string
   description: string | null
@@ -28,14 +56,19 @@ interface Variable {
 
 const VAR_TYPES = ['text', 'number', 'date', 'enum', 'boolean', 'object', 'list']
 
+const statusColors: Record<string, string> = {
+  active: 'green',
+  draft: 'orange',
+  archived: 'default',
+}
+
 export default function TemplateDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const [template, setTemplate] = useState<TemplateDetail | null>(null)
+  const [template, setTemplate] = useState<TemplateData | null>(null)
   const [variables, setVariables] = useState<Variable[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
-  const [activeTab, setActiveTab] = useState<'info' | 'variables' | 'styles' | 'preview'>('info')
 
   useEffect(() => {
     if (!id) return
@@ -50,13 +83,8 @@ export default function TemplateDetail() {
 
   const addVariable = () => {
     setVariables([...variables, {
-      name: '',
-      label: '',
-      var_type: 'text',
-      default_value: null,
-      description: null,
-      enum_options: null,
-      is_required: false,
+      name: '', label: '', var_type: 'text',
+      default_value: null, description: null, enum_options: null, is_required: false,
     }])
     setEditing(true)
   }
@@ -81,221 +109,203 @@ export default function TemplateDetail() {
     }
   }
 
-  const handleGenerate = () => {
-    navigate(`/generate/${id}`)
-  }
+  if (loading) return <div style={{ textAlign: 'center', padding: 80 }}><Spin size="large" /></div>
+  if (!template) return <Empty description="模板不存在" />
 
-  if (loading) return <div>加载中...</div>
-  if (!template) return <div>模板不存在</div>
+  const variableColumns = [
+    {
+      title: '变量名',
+      dataIndex: 'name',
+      key: 'name',
+      width: 150,
+      render: (text: string, _: any, i: number) => editing
+        ? <Input size="small" value={text} onChange={e => updateVariable(i, 'name', e.target.value)} />
+        : <Text code>{text}</Text>,
+    },
+    {
+      title: '显示名',
+      dataIndex: 'label',
+      key: 'label',
+      width: 150,
+      render: (text: string, _: any, i: number) => editing
+        ? <Input size="small" value={text} onChange={e => updateVariable(i, 'label', e.target.value)} />
+        : text || '-',
+    },
+    {
+      title: '类型',
+      dataIndex: 'var_type',
+      key: 'var_type',
+      width: 100,
+      render: (text: string, _: any, i: number) => editing
+        ? <Select size="small" value={text} onChange={v => updateVariable(i, 'var_type', v)} options={VAR_TYPES.map(t => ({ label: t, value: t }))} />
+        : <Tag>{text}</Tag>,
+    },
+    {
+      title: '必填',
+      dataIndex: 'is_required',
+      key: 'is_required',
+      width: 60,
+      align: 'center' as const,
+      render: (checked: boolean, _: any, i: number) => editing
+        ? <Checkbox checked={checked} onChange={e => updateVariable(i, 'is_required', e.target.checked)} />
+        : checked ? <Tag color="red">必填</Tag> : '-',
+    },
+    {
+      title: '默认值',
+      dataIndex: 'default_value',
+      key: 'default_value',
+      render: (text: string, _: any, i: number) => editing
+        ? <Input size="small" value={text || ''} onChange={e => updateVariable(i, 'default_value', e.target.value)} />
+        : text || '-',
+    },
+    {
+      title: '',
+      key: 'action',
+      width: 50,
+      render: (_: any, __: any, i: number) => editing
+        ? <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={() => removeVariable(i)} />
+        : null,
+    },
+  ]
 
-  return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontSize: 24, fontWeight: 600 }}>{template.name}</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>
-            {template.category} · v{template.current_version} · {template.status}
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={handleGenerate}
-            style={{ background: 'var(--primary)', color: '#fff', padding: '8px 20px', borderRadius: 6, fontSize: 14 }}>
-            生成文档
-          </button>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', gap: 16, marginBottom: 20, borderBottom: '1px solid var(--border)' }}>
-        {(['info', 'variables', 'styles', 'preview'] as const).map(tab => (
-          <button key={tab}
-            onClick={() => setActiveTab(tab)}
-            style={{
-              padding: '10px 16px',
-              background: 'none',
-              color: activeTab === tab ? 'var(--primary)' : 'var(--text-secondary)',
-              borderBottom: activeTab === tab ? '2px solid var(--primary)' : '2px solid transparent',
-              fontWeight: activeTab === tab ? 600 : 400,
-              fontSize: 14,
-            }}>
-            {{ info: '基本信息', variables: '变量配置', styles: '样式信息', preview: '模板预览' }[tab]}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === 'info' && (
-        <div style={{ background: '#fff', borderRadius: 8, padding: 24, border: '1px solid var(--border)' }}>
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>描述</label>
-            <p>{template.description || '暂无描述'}</p>
-          </div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>标签</label>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {template.tags.length > 0 ? template.tags.map((tag, i) => (
-                <span key={i} style={{ background: '#f0f5ff', color: 'var(--primary)', padding: '2px 10px', borderRadius: 12, fontSize: 12 }}>
-                  {tag}
-                </span>
-              )) : <span style={{ color: 'var(--text-secondary)', fontSize: 14 }}>无标签</span>}
-            </div>
-          </div>
-          {template.format_fingerprint && (
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>样式指纹</label>
-              <span style={{ fontSize: 12, fontFamily: 'monospace', background: '#f5f5f5', padding: '4px 8px', borderRadius: 4 }}>
-                {template.format_fingerprint}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeTab === 'variables' && (
-        <div style={{ background: '#fff', borderRadius: 8, padding: 24, border: '1px solid var(--border)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 600 }}>变量列表（{variables.length}）</h3>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={addVariable}
-                style={{ background: 'var(--bg)', color: 'var(--text)', padding: '6px 16px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13 }}>
-                + 添加变量
-              </button>
-              {editing && (
-                <button onClick={saveVariables}
-                  style={{ background: 'var(--primary)', color: '#fff', padding: '6px 16px', borderRadius: 6, fontSize: 13 }}>
-                  保存
-                </button>
-              )}
-            </div>
-          </div>
-
+  const tabItems = [
+    {
+      key: 'info',
+      label: '基本信息',
+      children: (
+        <Card style={{ borderRadius: 12 }} styles={{ body: { padding: 24 } }}>
+          <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small">
+            <Descriptions.Item label="描述" span={2}>
+              {template.description || <Text type="secondary">暂无描述</Text>}
+            </Descriptions.Item>
+            <Descriptions.Item label="分类">{template.category || '-'}</Descriptions.Item>
+            <Descriptions.Item label="版本">v{template.current_version}</Descriptions.Item>
+            <Descriptions.Item label="状态">
+              <Tag color={statusColors[template.status]}>{template.status}</Tag>
+            </Descriptions.Item>
+            <Descriptions.Item label="更新时间">{template.updated_at}</Descriptions.Item>
+            <Descriptions.Item label="标签" span={2}>
+              {template.tags.length > 0
+                ? template.tags.map((tag, i) => <Tag key={i} color="blue">{tag}</Tag>)
+                : <Text type="secondary">无标签</Text>}
+            </Descriptions.Item>
+            {template.format_fingerprint && (
+              <Descriptions.Item label="样式指纹" span={2}>
+                <Text code style={{ fontSize: 12 }}>{template.format_fingerprint}</Text>
+              </Descriptions.Item>
+            )}
+          </Descriptions>
+        </Card>
+      ),
+    },
+    {
+      key: 'variables',
+      label: `变量配置 (${variables.length})`,
+      children: (
+        <Card
+          style={{ borderRadius: 12 }}
+          extra={
+            <Space>
+              <Button icon={<PlusOutlined />} onClick={addVariable}>添加变量</Button>
+              {editing && <Button type="primary" icon={<SaveOutlined />} onClick={saveVariables}>保存</Button>}
+            </Space>
+          }
+        >
           {variables.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>
-              暂无变量，点击"添加变量"开始配置
-            </div>
+            <Empty description="暂无变量，点击「添加变量」开始配置" />
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border)', fontSize: 13, color: 'var(--text-secondary)' }}>
-                  <th style={{ textAlign: 'left', padding: '8px 12px' }}>变量名</th>
-                  <th style={{ textAlign: 'left', padding: '8px 12px' }}>显示名</th>
-                  <th style={{ textAlign: 'left', padding: '8px 12px' }}>类型</th>
-                  <th style={{ textAlign: 'left', padding: '8px 12px' }}>必填</th>
-                  <th style={{ textAlign: 'left', padding: '8px 12px' }}>默认值</th>
-                  <th style={{ width: 60 }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {variables.map((v, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                    <td style={{ padding: '8px 12px' }}>
-                      <input value={v.name} onChange={e => updateVariable(i, 'name', e.target.value)}
-                        style={{ fontSize: 13, padding: '4px 8px' }} />
-                    </td>
-                    <td style={{ padding: '8px 12px' }}>
-                      <input value={v.label} onChange={e => updateVariable(i, 'label', e.target.value)}
-                        style={{ fontSize: 13, padding: '4px 8px' }} />
-                    </td>
-                    <td style={{ padding: '8px 12px' }}>
-                      <select value={v.var_type} onChange={e => updateVariable(i, 'var_type', e.target.value)}
-                        style={{ fontSize: 13, padding: '4px 8px', width: 'auto' }}>
-                        {VAR_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                    </td>
-                    <td style={{ padding: '8px 12px' }}>
-                      <input type="checkbox" checked={v.is_required}
-                        onChange={e => updateVariable(i, 'is_required', e.target.checked)} />
-                    </td>
-                    <td style={{ padding: '8px 12px' }}>
-                      <input value={v.default_value || ''} onChange={e => updateVariable(i, 'default_value', e.target.value)}
-                        style={{ fontSize: 13, padding: '4px 8px' }} />
-                    </td>
-                    <td style={{ padding: '8px 12px' }}>
-                      <button onClick={() => removeVariable(i)}
-                        style={{ color: 'var(--error)', background: 'none', fontSize: 16 }}>×</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <Table
+              dataSource={variables.map((v, i) => ({ ...v, key: i }))}
+              columns={variableColumns}
+              pagination={false}
+              size="small"
+            />
           )}
-        </div>
-      )}
-
-      {activeTab === 'styles' && template.style_spec && (
-        <div style={{ background: '#fff', borderRadius: 8, padding: 24, border: '1px solid var(--border)' }}>
-          <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>样式概览</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, marginBottom: 24 }}>
+        </Card>
+      ),
+    },
+    {
+      key: 'styles',
+      label: '样式信息',
+      children: template.style_spec ? (
+        <div>
+          <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
             {[
               { label: '页面尺寸', value: template.style_spec.page?.size || '-' },
               { label: '页面方向', value: template.style_spec.page?.orientation || '-' },
               { label: '检测样式数', value: Object.keys(template.style_spec.styles || {}).length + ' 个' },
               { label: '编号定义', value: (template.style_spec.numbering || []).length + ' 个' },
-              { label: '表格样式', value: template.style_spec.table?.style_name || '-' },
-              { label: '样式指纹', value: template.format_fingerprint || '-', mono: true },
             ].map((item, i) => (
-              <div key={i} style={{ background: '#fafafa', borderRadius: 8, padding: 16, border: '1px solid var(--border)' }}>
-                <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 6 }}>{item.label}</div>
-                <div style={{ fontSize: 16, fontWeight: 600, fontFamily: (item as any).mono ? 'monospace' : 'inherit' }}>{item.value}</div>
-              </div>
+              <Col key={i} xs={12} sm={6}>
+                <Card size="small" style={{ borderRadius: 8, textAlign: 'center' }}>
+                  <Statistic title={item.label} value={item.value} valueStyle={{ fontSize: 16 }} />
+                </Card>
+              </Col>
             ))}
-          </div>
+          </Row>
 
-          <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>段落样式列表</h3>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                  <th style={{ textAlign: 'left', padding: '8px 10px' }}>样式名</th>
-                  <th style={{ textAlign: 'left', padding: '8px 10px' }}>字体</th>
-                  <th style={{ textAlign: 'left', padding: '8px 10px' }}>字号</th>
-                  <th style={{ textAlign: 'center', padding: '8px 10px' }}>粗体</th>
-                  <th style={{ textAlign: 'center', padding: '8px 10px' }}>斜体</th>
-                  <th style={{ textAlign: 'left', padding: '8px 10px' }}>对齐</th>
-                  <th style={{ textAlign: 'right', padding: '8px 10px' }}>行距</th>
-                  <th style={{ textAlign: 'right', padding: '8px 10px' }}>段前</th>
-                  <th style={{ textAlign: 'right', padding: '8px 10px' }}>段后</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(template.style_spec.styles || {}).map(([name, s]: [string, any]) => (
-                  <tr key={name} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                    <td style={{ padding: '6px 10px', fontWeight: 500 }}>{name}</td>
-                    <td style={{ padding: '6px 10px' }}>{s.font_en || s.font_cn || '-'}</td>
-                    <td style={{ padding: '6px 10px' }}>{s.size_pt}pt</td>
-                    <td style={{ padding: '6px 10px', textAlign: 'center' }}>{s.bold ? '✅' : '-'}</td>
-                    <td style={{ padding: '6px 10px', textAlign: 'center' }}>{s.italic ? '✅' : '-'}</td>
-                    <td style={{ padding: '6px 10px' }}>{s.alignment || 'left'}</td>
-                    <td style={{ padding: '6px 10px', textAlign: 'right' }}>{s.line_spacing}</td>
-                    <td style={{ padding: '6px 10px', textAlign: 'right' }}>{s.space_before_pt}pt</td>
-                    <td style={{ padding: '6px 10px', textAlign: 'right' }}>{s.space_after_pt}pt</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {template.style_spec.constraints && template.style_spec.constraints.length > 0 && (
-            <div style={{ marginTop: 24 }}>
-              <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>格式约束</h3>
-              <ul style={{ paddingLeft: 20, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.8 }}>
-                {template.style_spec.constraints.map((c: string, i: number) => (
-                  <li key={i}>{c}</li>
-                ))}
-              </ul>
-            </div>
+          {Object.keys(template.style_spec.styles || {}).length > 0 && (
+            <Card title="段落样式列表" style={{ borderRadius: 12 }} styles={{ body: { padding: 0 } }}>
+              <Table
+                dataSource={Object.entries(template.style_spec.styles || {}).map(([name, s]: [string, any], i) => ({
+                  key: i, name, ...s,
+                }))}
+                columns={[
+                  { title: '样式名', dataIndex: 'name', render: (t: string) => <Text strong>{t}</Text> },
+                  { title: '字体', dataIndex: 'font_en', render: (v: string, r: any) => v || r.font_cn || '-' },
+                  { title: '字号', dataIndex: 'size_pt', render: (v: number) => v ? `${v}pt` : '-' },
+                  { title: '粗体', dataIndex: 'bold', render: (v: boolean) => v ? 'Yes' : '-' },
+                  { title: '斜体', dataIndex: 'italic', render: (v: boolean) => v ? 'Yes' : '-' },
+                  { title: '对齐', dataIndex: 'alignment', render: (v: string) => v || 'left' },
+                ]}
+                pagination={false}
+                size="small"
+              />
+            </Card>
           )}
         </div>
-      )}
-      {activeTab === 'styles' && !template.style_spec && (
-        <div style={{ background: '#fff', borderRadius: 8, padding: 40, textAlign: 'center', border: '1px solid var(--border)' }}>
-          <p style={{ color: 'var(--text-secondary)' }}>暂未提取样式信息，请重新上传模板。</p>
-        </div>
-      )}
+      ) : (
+        <Empty description="暂未提取样式信息" />
+      ),
+    },
+    {
+      key: 'preview',
+      label: '模板预览',
+      children: <PreviewContent templateId={template.id} />,
+    },
+  ]
 
-      {activeTab === 'preview' && (
-        <div style={{ background: '#fff', borderRadius: 8, padding: 24, border: '1px solid var(--border)' }}>
-          <PreviewContent templateId={template.id} />
+  return (
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <Button
+          type="text"
+          icon={<ArrowLeftOutlined />}
+          onClick={() => navigate('/templates')}
+          style={{ marginBottom: 12, padding: 0 }}
+        >
+          返回模板中心
+        </Button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <Title level={3} style={{ margin: 0 }}>{template.name}</Title>
+            <Space style={{ marginTop: 8 }}>
+              {template.category && <Tag>{template.category}</Tag>}
+              <Text type="secondary">v{template.current_version}</Text>
+              <Tag color={statusColors[template.status]}>{template.status}</Tag>
+            </Space>
+          </div>
+          <Button
+            type="primary"
+            icon={<ThunderboltOutlined />}
+            onClick={() => navigate(`/generate/${id}`)}
+          >
+            生成文档
+          </Button>
         </div>
-      )}
+      </div>
+
+      <Tabs items={tabItems} defaultActiveKey="info" />
     </div>
   )
 }
@@ -314,16 +324,11 @@ function PreviewContent({ templateId }: { templateId: string }) {
     setLoadingPreview(true)
     setPreviewError('')
     api.previewTemplate(templateId)
-      .then((res: any) => {
-        setHtml(res.html || '')
-      })
-      .catch((err: any) => {
-        setPreviewError(typeof err === 'string' ? err : err?.detail || '预览加载失败')
-      })
+      .then((res: any) => setHtml(res.html || ''))
+      .catch((err: any) => setPreviewError(typeof err === 'string' ? err : err?.detail || '预览加载失败'))
       .finally(() => setLoadingPreview(false))
   }, [templateId])
 
-  // Paginate: group doc blocks by A4 page height (blocks never split mid-element)
   useEffect(() => {
     if (!html) return
     const container = measureRef.current
@@ -350,31 +355,19 @@ function PreviewContent({ templateId }: { templateId: string }) {
     setPages(groups)
   }, [html])
 
-  if (loadingPreview) {
-    return <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>加载预览中...</div>
-  }
-
-  if (previewError) {
-    return (
-      <div style={{ textAlign: 'center', padding: 40 }}>
-        <p style={{ color: 'var(--error)', marginBottom: 8 }}>❌ {previewError}</p>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>请确认模板文件存在且格式正确</p>
-      </div>
-    )
-  }
+  if (loadingPreview) return <div style={{ textAlign: 'center', padding: 40 }}><Spin /></div>
+  if (previewError) return <Empty description={previewError} />
 
   return (
     <div>
-      {/* Off-screen measuring container (same width as pages) */}
       <div
         ref={measureRef}
         style={{ position: 'absolute', visibility: 'hidden', left: -9999, top: 0, width: PREVIEW_PAGE_W }}
         dangerouslySetInnerHTML={{ __html: html || '' }}
       />
-      {/* Paginated A4 pages */}
-      <div style={{ maxHeight: '70vh', overflow: 'auto', padding: 16, background: '#f0f0f0', borderRadius: 8 }}>
+      <div style={{ maxHeight: '70vh', overflow: 'auto', padding: 16, background: '#f8fafc', borderRadius: 12 }}>
         {pages.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>文档内容为空</div>
+          <Empty description="文档内容为空" />
         ) : pages.map((els, i) => (
           <div
             key={i}
@@ -388,10 +381,11 @@ function PreviewContent({ templateId }: { templateId: string }) {
               width: PREVIEW_PAGE_W,
               minHeight: PREVIEW_PAGE_H,
               background: '#fff',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.12)',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
               margin: '0 auto 24px',
               position: 'relative',
               boxSizing: 'border-box',
+              borderRadius: 4,
             }}
           >
             <span style={{ position: 'absolute', right: 10, bottom: 6, fontSize: 11, color: '#bbb' }}>{i + 1}</span>

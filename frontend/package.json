@@ -9,6 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ant-design/cssinjs": "^2.1.2",
+    "@ant-design/icons": "^6.3.2",
+    "antd": "^6.6.1",
     "axios": "^1.7.2",
     "clsx": "^2.1.1",
     "cytoscape": "^3.34.0",
